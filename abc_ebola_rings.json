@@ -1,0 +1,34 @@
+{
+    "smc_iterations" : 10,
+    "num_samples"    : 10000,
+    "predictive_prior_fraction" : 0.05,
+    "pls_training_fraction"     : 0.5,
+    "noise"                     : "MULTIVARIATE",
+
+    "database_filename"             : "ebola_ring.sqlite",
+
+    "parameters" : [
+        {"name"       : "cluster_sd",
+         "dist_type"  : "UNIFORM",
+         "num_type"   : "FLOAT",
+         "par1"       : 0.001,
+         "par2"       : 0.5},
+
+        {"name"       : "wiring_sd",
+         "dist_type"  : "UNIFORM",
+         "num_type"   : "FLOAT",
+         "par1"       : 0.001,
+         "par2"       : 0.5}
+    ],                
+
+    "metrics" : [     
+        {"name"       : "ring1",
+         "num_type"   : "FLOAT",
+         "value"      : 16},
+
+        {"name"       : "N",
+         "num_type"   : "FLOAT",
+         "value"      : 80}
+    ]
+}
+                                       
