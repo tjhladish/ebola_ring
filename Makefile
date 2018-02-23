@@ -21,3 +21,6 @@ libabc:
 
 ebola_net: epifire main.cpp
 	g++ $(FLAGS) main.cpp -o ebola $(INCLUDE) $(GSL_LIB) $(LDFLAGS)
+
+degvtime: epifire degree_vs_time.cpp
+	g++ $(FLAGS) degree_vs_time.cpp -o degvtime $(INCLUDE) $(LDFLAGS)
