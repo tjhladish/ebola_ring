@@ -1,3 +1,6 @@
+#ifndef RING_GEN_H
+#define RING_GEN_H
+
 #include <iostream>
 #include <random>
 #include <chrono>
@@ -57,7 +60,7 @@ vector<double> calc_weights(const vector<pair<double, double>> &coords, int refe
 }
 
 
-int main() {
+Network* generate_ebola_network(Node* p_zero) {
     const int N = 1e3;
     const int clusters = 200;
     const double mean_deg = 16.0;
@@ -68,12 +71,12 @@ int main() {
     default_random_engine rng(seed);
     uniform_real_distribution<double> runif(0.0, 1.0);
 
-    Network ebola_ring("asdf", Network::Undirected);
-    ebola_ring.populate(N);
+    Network* ebola_ring = new Network("ebola_ring", Network::Undirected);
+    ebola_ring->populate(N);
 
-    vector<Node*> nodes = ebola_ring.get_nodes();
+    vector<Node*> nodes = ebola_ring->get_nodes();
     const int p_zero_idx = 0;
-    Node* p_zero = nodes[p_zero_idx];
+    p_zero = nodes[p_zero_idx];
 
     // locate nodes, get weights for wiring p_zero
     vector<pair<double, double>> coords = generate_spatial_distribution(N, clusters, cluster_kernel_sd, rng);
@@ -118,17 +121,22 @@ int main() {
     }
 
 	for (unsigned int i = 0; i < nodes.size(); ++i) {
-	    if (nodes[i]->deg() == 0) ebola_ring.delete_node(nodes[i]);
+	    if (nodes[i]->deg() == 0) ebola_ring->delete_node(nodes[i]);
     }
 
-    cerr << "Total size: " << ebola_ring.size() << endl;
+    cerr << "Total size: " << ebola_ring->size() << endl;
     cerr << "Ring 1 size: " << ring_1.size() << endl;
     cerr << "Ring 2 size: " << ring_2.size() << endl;
-    cerr << "Transitivity clustering coefficient: " << ebola_ring.transitivity() << endl;
-    ebola_ring.write_edgelist("ebola_ring.csv", Network::NodeIDs);
+    cerr << "Transitivity clustering coefficient: " << ebola_ring->transitivity() << endl;
+    /*
+    ebola_ring->write_edgelist("ebola_ring.csv", Network::NodeIDs);
 
     cout << "idx,x,y\n";
     for (unsigned int i = 0; i < coords.size(); ++i) {
         cout << i << "," << coords[i].first << "," << coords[i].second << endl;
-    }
+    }*/
+    
+    return ebola_ring;
 }
+
+#endif

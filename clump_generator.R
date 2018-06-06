@@ -30,3 +30,5 @@ mtext(signif(hhs,3),2,0,outer=T,at=seq(0.9,0.1,-0.2))
 mtext("SD",1,outer=T,at=0.5,line=2)
 mtext("# households",2,outer=T,at=0.5,line=2)
 dev.off()
+
+
