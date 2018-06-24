@@ -75,7 +75,7 @@ Network* generate_ebola_network(Node* p_zero) {
     ebola_ring->populate(N);
 
     vector<Node*> nodes = ebola_ring->get_nodes();
-    const int p_zero_idx = 0;
+    const int p_zero_idx = 0; // important--we use index to identify p_zero for triggering mass vaccination of group
     p_zero = nodes[p_zero_idx];
 
     // locate nodes, get weights for wiring p_zero

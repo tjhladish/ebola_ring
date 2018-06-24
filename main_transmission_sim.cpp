@@ -8,15 +8,16 @@ int main() {
     //net.populate(10000);
     //net.fast_random_graph(8);
 
-    double lambda  = 0.1; // dummy vals
-    double epsilon = 0.1;
-    double nu      = 0.1;
+    Vaccine vaccine;
+    vaccine.efficacy = {1.0, 0.0};   // single dose vaccine
+    vaccine.efficacy = {0.8, 0.9}; // two dose vaccine
+    vaccine.coverage = 0.5;
+    vaccine.isLeaky  = false;
 
     for(int i=0; i<1; i++ ) {
-        Event_Driven_Polio_Sim sim(net, lambda, epsilon, nu);
-        //sim.rand_infect(1);
-        sim.infect(p_zero);
-        sim.run_simulation(1000);
+        Event_Driven_Polio_Sim sim(net, vaccine);
+        sim.expose(p_zero);
+        sim.run_simulation();
         //cout << sim.current_epidemic_size() << endl;
     }
 
