@@ -29,5 +29,5 @@ ebola_abc: epifire libabc main_abc.cpp
 degvtime: epifire degree_vs_time.cpp
 	g++ $(FLAGS) degree_vs_time.cpp -o degvtime $(INCLUDE) $(LDFLAGS)
 
-ebola_sim: epifire Ring_Generator.h Event_Driven_Polio_Sim.h main_transmission_sim.cpp
+ebola_sim: epifire Ring_Generator.h Event_Driven_Ebola_Sim.h main_transmission_sim.cpp
 	g++ $(FLAGS) main_transmission_sim.cpp -o etsim $(INCLUDE) $(LDFLAGS)

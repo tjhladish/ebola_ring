@@ -60,8 +60,8 @@ class compTime {
 
 class Vaccine {
   public:
-    vector<double> efficacy;
-    double coverage;
+    vector<double> efficacy; // doses 1 and 2
+    vector<double> coverage; // same
     bool isLeaky;
     double timeToProtection;
 };
@@ -73,11 +73,13 @@ class Event_Driven_Ebola_Sim {
         network = net;
         node_vac_immunity.clear();
         node_vac_immunity.resize(network->size(), make_pair(0.0, 0.0));
+        vaccine_doses_used = {0, 0}; // doses 1 and 2
         reset();
     }
 
     Network* network;           // population
     const Vaccine vaccine;
+    vector<int> vaccine_doses_used;
     vector<pair<double, double> > node_vac_immunity; // time of vaccination, efficacy
 
     priority_queue<Event, vector<Event>, compTime > EventQ;
@@ -209,28 +211,43 @@ class Event_Driven_Ebola_Sim {
         }
     }
 
-    void vaccine_campaign() {
-        for (Node* node: network->get_nodes()) {
-            if (runif(rng) < vaccine.coverage) {
-                const StateType state = (StateType) node->get_state();
-                // TODO - verify w/ Roz the states to be vaccinating
-                double vac_eff = 0.0;
-                if (state == SUSCEPTIBLE) {
-                    update_state(node, SUSCEPTIBLE, VAC_PARTIAL);
-                    vac_eff = vaccine.efficacy[0];
-                } else if (state == VAC_PARTIAL) {
-                    update_state(node, VAC_PARTIAL, VAC_FULL);
-                    vac_eff = vaccine.efficacy[1];
-                } else if (state == EXPOSED or state == RECOVERED) {
-                    // Roz - what do?
-                }
+    void vaccine_campaign(EventType et) {
+        StateType eligible_group;
+        StateType converts_to;
+        if (et == V1_EVENT or et == V2_EVENT) {
+            int dose_idx = 0;
+            if (et == V1_EVENT) {
+                assert(vaccine_doses_used[0] == 0); // V1_EVENT is only expected once
+                eligible_group = SUSCEPTIBLE;
+                converts_to    = VAC_PARTIAL;
+            } else {
+                assert(vaccine_doses_used[1] == 0); // V2_EVENT is only expected once
+                eligible_group = VAC_PARTIAL;
+                converts_to    = VAC_FULL;
+                dose_idx = 1;
+            }
 
-                if (vaccine.isLeaky) {
-                    node_vac_immunity[node->get_id()] = make_pair(Now, vac_eff);
-                } else {
-                    node_vac_immunity[node->get_id()] = make_pair(Now, runif(rng) < vac_eff ? 1.0 : 0.0);
+            for (Node* node: network->get_nodes()) {
+                const StateType state = (StateType) node->get_state();
+                if (state == INFECTIOUS) { continue; } // all others will be potentially vaccinated
+
+                if (runif(rng) < vaccine.coverage[dose_idx]) {
+                    vaccine_doses_used[dose_idx]++;
+
+                    if (state == eligible_group) {
+                        update_state(node, eligible_group, converts_to);
+                        const double vac_eff = vaccine.efficacy[dose_idx];
+                        if (vaccine.isLeaky) {
+                            node_vac_immunity[node->get_id()] = make_pair(Now, vac_eff);
+                        } else {
+                            node_vac_immunity[node->get_id()] = make_pair(Now, runif(rng) < vac_eff ? 1.0 : 0.0);
+                        }
+                    }
                 }
             }
+        } else {
+            cerr << "ERROR: Unsupported vaccination event type: " << et << endl;
+            exit(-4);
         }
     }
 
@@ -259,7 +276,7 @@ class Event_Driven_Ebola_Sim {
                     break;
                 case V1_EVENT:      // intentional fall-through to V2_EVENT
                 case V2_EVENT:
-                    vaccine_campaign();
+                    vaccine_campaign(event.type);
                     break;
                 default:
                     cerr << "ERROR: Unsupported event type: " << event.type << endl;
