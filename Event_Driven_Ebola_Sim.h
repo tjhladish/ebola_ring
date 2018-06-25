@@ -168,7 +168,7 @@ class Event_Driven_Ebola_Sim {
             double Ti_end;
             if (Th < Tr) {                                    // end of infectious period is whichever happens first
                 Ti_end = Th;
-                add_event(Tr, ItoH_EVENT, node);
+                add_event(Th, ItoH_EVENT, node);
             } else {
                 Ti_end = Tr;
                 add_event(Tr, ItoR_EVENT, node);
