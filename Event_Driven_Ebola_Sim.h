@@ -1,5 +1,5 @@
-#ifndef ED_POLIO_SIM_H
-#define ED_POLIO_SIM_H
+#ifndef ED_EBOLA_SIM_H
+#define ED_EBOLA_SIM_H
 
 #include <stdlib.h>
 #include <vector>
@@ -66,10 +66,10 @@ class Vaccine {
     double timeToProtection;
 };
 
-class Event_Driven_Polio_Sim {
+class Event_Driven_Ebola_Sim {
   public:
                                 // constructor
-    Event_Driven_Polio_Sim ( Network* net, const Vaccine& _vac) : vaccine(_vac) {
+    Event_Driven_Ebola_Sim ( Network* net, const Vaccine& _vac) : vaccine(_vac) {
         network = net;
         node_vac_immunity.clear();
         node_vac_immunity.resize(network->size(), make_pair(0.0, 0.0));

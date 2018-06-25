@@ -1,5 +1,5 @@
 #include "Ring_Generator.h"
-#include "Event_Driven_Polio_Sim.h"
+#include "Event_Driven_Ebola_Sim.h"
 
 int main() { 
     Node* p_zero;
@@ -15,7 +15,7 @@ int main() {
     vaccine.isLeaky  = false;
 
     for(int i=0; i<1; i++ ) {
-        Event_Driven_Polio_Sim sim(net, vaccine);
+        Event_Driven_Ebola_Sim sim(net, vaccine);
         sim.expose(p_zero);
         sim.run_simulation();
         //cout << sim.current_epidemic_size() << endl;
