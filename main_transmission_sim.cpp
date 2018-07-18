@@ -2,14 +2,12 @@
 #include "Event_Driven_Ebola_Sim.h"
 
 int main() { 
-    Node* p_zero = nullptr;
-    Network* net = generate_ebola_network(p_zero);
-    //Network net = Network("ebola_pop", Network::Undirected);
-    //net.populate(10000);
-    //net.fast_random_graph(8);
+    const unsigned int seed = 0;
+    Network* net = generate_ebola_network(seed); // omit seed argument for seed based on current time
+    Node* p_zero = net->get_nodes()[0];          // not elegant, but works for now
 
     Vaccine vaccine;
-    vaccine.efficacy = {1.0, 0.0};   // single dose vaccine
+    //vaccine.efficacy = {1.0, 0.0};   // single dose vaccine
     vaccine.efficacy = {0.8, 0.9}; // two dose vaccine
     vaccine.coverage = {0.5, 1.0};
     vaccine.isLeaky  = false;

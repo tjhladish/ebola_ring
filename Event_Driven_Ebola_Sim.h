@@ -8,6 +8,7 @@
 #include "Utility.h"
 #include "Network.h"
 #include <random>
+#include <iomanip>
 
 using namespace std;
 
@@ -15,6 +16,21 @@ using namespace std;
 //mt19937 gen(seed);
 
 uniform_real_distribution<double> runif(0.0, 1.0);
+// mean  = alpha/beta
+// sd    = sqrt(alpha)/beta
+// alpha = (mean/sd)**2
+// beta  = mean/alpha --> mean/(sd**2 * beta**2) --> (mean/sd**2)**(1/3)
+
+inline double gamma_alpha(double mean, double sd) {return pow(mean/sd, 2);}
+inline double gamma_beta(double mean, double sd) {return pow(mean/pow(sd,2), 1.0/3);}
+
+gamma_distribution<double> rSE(gamma_alpha(2,1),       gamma_beta(2,1));   // 2,1 are totally arbitary--prob needs to be fit
+gamma_distribution<double> rEI(gamma_alpha(6,2),       gamma_beta(6,2));   // 6,2
+gamma_distribution<double> rIR(gamma_alpha(9,4),       gamma_beta(9,4));   // 9,4
+gamma_distribution<double> rIH(gamma_alpha(2,1),       gamma_beta(2,1));   // 2,1
+gamma_distribution<double> rIH_pzero(gamma_alpha(5,3), gamma_beta(5,3));   // 5,3
+gamma_distribution<double> rID(gamma_alpha(8,4),       gamma_beta(8,4));   // 8,4 arbitary numbers
+gamma_distribution<double> rV1(gamma_alpha(5,3),       gamma_beta(5,3));   // 5,3
 random_device rd;                       // generates a random real number for the seed
 mt19937 rng(rd());                      // random number generator
 
@@ -26,12 +42,15 @@ enum StateType { SUSCEPTIBLE,
                  INFECTIOUS,
                  HOSPITALIZED,
                  RECOVERED,
+                 DEAD,
                  NUM_OF_STATE_TYPES }; // must be last
 
 enum EventType { StoE_EVENT,
                  EtoI_EVENT,
                  ItoR_EVENT,
                  ItoH_EVENT,
+                 ItoH_PZERO_EVENT,
+                 ItoD_EVENT,
                  V1_EVENT,
                  V2_EVENT,
                  NUM_OF_EVENT_TYPES }; // must be last
@@ -92,19 +111,25 @@ class Event_Driven_Ebola_Sim {
         double delta_t = 0.0; // time in days
         switch (et) {
             case StoE_EVENT:  // per-neighbor time until contact
-                delta_t = 1;
+                delta_t = rSE(rng);
                 break;
             case EtoI_EVENT:  // incubation period
-                delta_t = 10;
+                delta_t = rEI(rng);
                 break;
             case ItoR_EVENT:  // infectious period
-                delta_t = 10;
+                delta_t = rIR(rng);
                 break;
             case ItoH_EVENT:  // time until hospitalization
-                delta_t = 5;
+                delta_t = rIH(rng);
+                break;
+            case ItoH_PZERO_EVENT:  // time until hospitalization
+                delta_t = rIH_pzero(rng);
+                break;
+            case ItoD_EVENT:  // time until hospitalization
+                delta_t = rID(rng);
                 break;
             case V1_EVENT  :  // time from index case is detected until mass vaccination
-                delta_t = 3;
+                delta_t = rV1(rng);
                 break;
             case V2_EVENT  :  // time between dose 1 and dose 2
                 delta_t = 28;
@@ -122,10 +147,15 @@ class Event_Driven_Ebola_Sim {
         int day = (int) Now;
         while (next_event() and Now < start_time + duration) {
             if ((int) Now > day) {
-                cout << (int) Now << " : "  << state_counts[SUSCEPTIBLE] << "\t"
-                                      << state_counts[EXPOSED] << "\t"
-                                      << state_counts[INFECTIOUS] << "\t"
-                                      << state_counts[RECOVERED] << endl;
+                cout << "(SvV | EI | HRD) " << Now << " :\t"
+                                  << state_counts[SUSCEPTIBLE] << "\t"
+                                  << state_counts[VAC_PARTIAL] << "\t"
+                                  << state_counts[VAC_FULL] << "\t|\t"
+                                  << state_counts[EXPOSED] << "\t"
+                                  << state_counts[INFECTIOUS] << "\t|\t"
+                                  << state_counts[HOSPITALIZED] << "\t"
+                                  << state_counts[RECOVERED] << "\t"
+                                  << state_counts[DEAD] << endl;
                 day = (int) Now;
             }
 
@@ -164,16 +194,21 @@ class Event_Driven_Ebola_Sim {
             double Ti = Now + time_to_event(EtoI_EVENT);      // time to become infectious
             add_event(Ti, EtoI_EVENT, node);
 
-            double Th = Ti + time_to_event(ItoH_EVENT);
+            double Th = Ti;
+            Th += isPatientZero(node) ? time_to_event(ItoH_PZERO_EVENT) : time_to_event(ItoH_EVENT);
             double Tr = Ti + time_to_event(ItoR_EVENT);
+            double Td = Ti + time_to_event(ItoD_EVENT);
 
             double Ti_end;
-            if (Th < Tr) {                                    // end of infectious period is whichever happens first
+            if (Th < Tr and Th < Td) {                        // end of infectious period is whichever happens first
                 Ti_end = Th;
                 add_event(Th, ItoH_EVENT, node);
-            } else {
+            } else if (Tr < Th and Tr < Td) {
                 Ti_end = Tr;
                 add_event(Tr, ItoR_EVENT, node);
+            } else {
+                Ti_end = Td;
+                add_event(Td, ItoD_EVENT, node);
             }
 
             for (Node* neighbor: node->get_neighbors()) {     // density-dependent assumption! more neighbors --> more contact per unit time
@@ -184,7 +219,8 @@ class Event_Driven_Ebola_Sim {
                 }
             }
             didTransmissionOccur = true;
-        } else if (state == EXPOSED or state == INFECTIOUS or state == RECOVERED or state == HOSPITALIZED) {
+            update_state(node, state, EXPOSED);
+        } else if (state == EXPOSED or state == INFECTIOUS or state == RECOVERED or state == HOSPITALIZED or state == DEAD) {
             didTransmissionOccur = false;
         } else {
             cerr << "ERROR: Exposure of node in unsupported state.  Node state is " << state << endl;
@@ -199,6 +235,7 @@ class Event_Driven_Ebola_Sim {
     }
 
     void schedule_vaccinations() {
+        cerr << "vaccination triggered\n";
         // schedule initial vaccinations for everyone in network who is eligible
         // first and second doses are scheduled if efficacy is > 0 (dose 2 is conditional on dose 1)
         if (vaccine.efficacy[0] > 0.0) {
@@ -271,8 +308,13 @@ class Event_Driven_Ebola_Sim {
                     update_state(node, INFECTIOUS, HOSPITALIZED);
                     if (isPatientZero(node)) { schedule_vaccinations(); }
                     break;
+                case ItoD_EVENT:    // death event
+                    update_state(node, INFECTIOUS, DEAD);
+                    if (isPatientZero(node)) { schedule_vaccinations(); }
+                    break;
                 case StoE_EVENT:    // a contact event--contacted node might not actually be susceptible
-                    if (expose(node)) { update_state(node, SUSCEPTIBLE, EXPOSED); }
+                    //if (expose(node)) { update_state(node, SUSCEPTIBLE, EXPOSED); }
+                    expose(node);
                     break;
                 case V1_EVENT:      // intentional fall-through to V2_EVENT
                 case V2_EVENT:

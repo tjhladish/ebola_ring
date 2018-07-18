@@ -60,14 +60,15 @@ vector<double> calc_weights(const vector<pair<double, double>> &coords, int refe
 }
 
 
-Network* generate_ebola_network(Node* p_zero) {
+//Network* generate_ebola_network(Node* p_zero, const unsigned int seed = chrono::system_clock::now().time_since_epoch().count()) {
+Network* generate_ebola_network(const unsigned int seed = chrono::system_clock::now().time_since_epoch().count()) {
     const int N = 1e3;
     const int clusters = 200;
     const double mean_deg = 16.0;
     const double cluster_kernel_sd = 0.01;
     const double wiring_kernel_sd = 0.094;
 
-    const unsigned seed = chrono::system_clock::now().time_since_epoch().count();
+    //const unsigned int seed = chrono::system_clock::now().time_since_epoch().count();
     default_random_engine rng(seed);
     uniform_real_distribution<double> runif(0.0, 1.0);
 
@@ -76,7 +77,7 @@ Network* generate_ebola_network(Node* p_zero) {
 
     vector<Node*> nodes = ebola_ring->get_nodes();
     const int p_zero_idx = 0; // important--we use index to identify p_zero for triggering mass vaccination of group
-    p_zero = nodes[p_zero_idx];
+    Node* p_zero = nodes[p_zero_idx];
 
     // locate nodes, get weights for wiring p_zero
     vector<pair<double, double>> coords = generate_spatial_distribution(N, clusters, cluster_kernel_sd, rng);
