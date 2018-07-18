@@ -239,7 +239,7 @@ class Event_Driven_Ebola_Sim {
         // schedule initial vaccinations for everyone in network who is eligible
         // first and second doses are scheduled if efficacy is > 0 (dose 2 is conditional on dose 1)
         if (vaccine.efficacy[0] > 0.0) {
-            const double Tv1 = Now + time_to_event(V2_EVENT);
+            const double Tv1 = Now + time_to_event(V1_EVENT);
             add_event(Tv1, V1_EVENT);
             if (vaccine.efficacy[1] > 0.0) {
                 const double Tv2 = Tv1 + time_to_event(V2_EVENT);
