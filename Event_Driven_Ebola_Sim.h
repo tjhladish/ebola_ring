@@ -32,7 +32,7 @@ gamma_distribution<double> rIH_pzero(gamma_alpha(5,3), gamma_beta(5,3));   // 5,
 gamma_distribution<double> rID(gamma_alpha(8,4),       gamma_beta(8,4));   // 8,4 arbitary numbers
 gamma_distribution<double> rV1(gamma_alpha(5,3),       gamma_beta(5,3));   // 5,3
 random_device rd;                       // generates a random real number for the seed
-mt19937 rng(rd());                      // random number generator
+mt19937 rng;                      // random number generator
 
 
 enum StateType { SUSCEPTIBLE,
@@ -79,6 +79,7 @@ class compTime {
 
 class Vaccine {
   public:
+    Vaccine () : efficacy({1.0,1.0}), coverage({1.0,1.0}), isLeaky(true), timeToProtection(numeric_limits<double>::max()) {}
     vector<double> efficacy; // doses 1 and 2
     vector<double> coverage; // same
     bool isLeaky;
@@ -88,7 +89,8 @@ class Vaccine {
 class Event_Driven_Ebola_Sim {
   public:
                                 // constructor
-    Event_Driven_Ebola_Sim ( Network* net, const Vaccine& _vac) : vaccine(_vac) {
+    Event_Driven_Ebola_Sim ( Network* net, const Vaccine& _vac, unsigned int seed = rd()) : vaccine(_vac) {
+        rng.seed(seed);
         network = net;
         node_vac_immunity.clear();
         node_vac_immunity.resize(network->size(), make_pair(0.0, 0.0));
@@ -180,6 +182,7 @@ class Event_Driven_Ebola_Sim {
     }
 
     bool expose(Node* node) {
+        //cerr << "node: " << node->get_id() << endl;
         bool didTransmissionOccur = false;
         StateType state = (StateType) node->get_state();
         bool unprotected_by_vaccine = true;
@@ -187,39 +190,42 @@ class Event_Driven_Ebola_Sim {
             const double vac_time = node_vac_immunity[node->get_id()].first;
                                                              // current assumption is vaccine abruptly assumes full efficacy after timeToProtection
             const double vac_protection = (vac_time - Now > vaccine.timeToProtection) ? node_vac_immunity[node->get_id()].second : 0.0;
+            const double asdf = runif(rng);
             unprotected_by_vaccine = runif(rng) > vac_protection;
         }
 
-        if ((state == SUSCEPTIBLE or state == VAC_PARTIAL or state == VAC_FULL) and unprotected_by_vaccine) {
-            double Ti = Now + time_to_event(EtoI_EVENT);      // time to become infectious
-            add_event(Ti, EtoI_EVENT, node);
+        if (state == SUSCEPTIBLE or state == VAC_PARTIAL or state == VAC_FULL) {
+            if (unprotected_by_vaccine) {
+                double Ti = Now + time_to_event(EtoI_EVENT);      // time to become infectious
+                add_event(Ti, EtoI_EVENT, node);
 
-            double Th = Ti;
-            Th += isPatientZero(node) ? time_to_event(ItoH_PZERO_EVENT) : time_to_event(ItoH_EVENT);
-            double Tr = Ti + time_to_event(ItoR_EVENT);
-            double Td = Ti + time_to_event(ItoD_EVENT);
+                double Th = Ti;
+                Th += isPatientZero(node) ? time_to_event(ItoH_PZERO_EVENT) : time_to_event(ItoH_EVENT);
+                double Tr = Ti + time_to_event(ItoR_EVENT);
+                double Td = Ti + time_to_event(ItoD_EVENT);
 
-            double Ti_end;
-            if (Th < Tr and Th < Td) {                        // end of infectious period is whichever happens first
-                Ti_end = Th;
-                add_event(Th, ItoH_EVENT, node);
-            } else if (Tr < Th and Tr < Td) {
-                Ti_end = Tr;
-                add_event(Tr, ItoR_EVENT, node);
-            } else {
-                Ti_end = Td;
-                add_event(Td, ItoD_EVENT, node);
-            }
-
-            for (Node* neighbor: node->get_neighbors()) {     // density-dependent assumption! more neighbors --> more contact per unit time
-                double Tc = Ti + time_to_event(StoE_EVENT);   // time to next contact--we'll worry about whether contact is susceptible at Tc
-                while ( Tc < Ti_end ) {                       // does contact occur before recovery?
-                    add_event(Tc, StoE_EVENT, neighbor);      // potential transmission event
-                    Tc += time_to_event(StoE_EVENT);          // if vaccine is leaky, or successful transmission is probabilistic, this is impt
+                double Ti_end;
+                if (Th < Tr and Th < Td) {                        // end of infectious period is whichever happens first
+                    Ti_end = Th;
+                    add_event(Th, ItoH_EVENT, node);
+                } else if (Tr < Th and Tr < Td) {
+                    Ti_end = Tr;
+                    add_event(Tr, ItoR_EVENT, node);
+                } else {
+                    Ti_end = Td;
+                    add_event(Td, ItoD_EVENT, node);
                 }
+
+                for (Node* neighbor: node->get_neighbors()) {     // density-dependent assumption! more neighbors --> more contact per unit time
+                    double Tc = Ti + time_to_event(StoE_EVENT);   // time to next contact--we'll worry about whether contact is susceptible at Tc
+                    while ( Tc < Ti_end ) {                       // does contact occur before recovery?
+                        add_event(Tc, StoE_EVENT, neighbor);      // potential transmission event
+                        Tc += time_to_event(StoE_EVENT);          // if vaccine is leaky, or successful transmission is probabilistic, this is impt
+                    }
+                }
+                didTransmissionOccur = true;
+                update_state(node, state, EXPOSED);
             }
-            didTransmissionOccur = true;
-            update_state(node, state, EXPOSED);
         } else if (state == EXPOSED or state == INFECTIOUS or state == RECOVERED or state == HOSPITALIZED or state == DEAD) {
             didTransmissionOccur = false;
         } else {
@@ -277,7 +283,8 @@ class Event_Driven_Ebola_Sim {
                         if (vaccine.isLeaky) {
                             node_vac_immunity[node->get_id()] = make_pair(Now, vac_eff);
                         } else {
-                            node_vac_immunity[node->get_id()] = make_pair(Now, runif(rng) < vac_eff ? 1.0 : 0.0);
+                            const double r = runif(rng);
+                            node_vac_immunity[node->get_id()] = make_pair(Now, r < vac_eff ? 1.0 : 0.0);
                         }
                     }
                 }

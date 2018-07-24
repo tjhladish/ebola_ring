@@ -10,6 +10,7 @@ int main() {
     //vaccine.efficacy = {1.0, 0.0};   // single dose vaccine
     vaccine.efficacy = {0.8, 0.9}; // two dose vaccine
     vaccine.coverage = {0.5, 1.0};
+    vaccine.timeToProtection = 7;
     vaccine.isLeaky  = false;
 
     for(int i=0; i<1; i++ ) {
