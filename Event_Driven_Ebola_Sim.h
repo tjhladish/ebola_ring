@@ -9,6 +9,8 @@
 #include "Network.h"
 #include <random>
 #include <iomanip>
+#include <map>
+#include <functional>
 
 using namespace std;
 
@@ -16,24 +18,8 @@ using namespace std;
 //mt19937 gen(seed);
 
 uniform_real_distribution<double> runif(0.0, 1.0);
-// mean  = alpha/beta
-// sd    = sqrt(alpha)/beta
-// alpha = (mean/sd)**2
-// beta  = mean/alpha --> mean/(sd**2 * beta**2) --> (mean/sd**2)**(1/3)
-
-inline double gamma_alpha(double mean, double sd) {return pow(mean/sd, 2);}
-inline double gamma_beta(double mean, double sd) {return pow(mean/pow(sd,2), 1.0/3);}
-
-gamma_distribution<double> rSE(gamma_alpha(2,1),       gamma_beta(2,1));   // 2,1 are totally arbitary--prob needs to be fit
-gamma_distribution<double> rEI(gamma_alpha(6,2),       gamma_beta(6,2));   // 6,2
-gamma_distribution<double> rIR(gamma_alpha(9,4),       gamma_beta(9,4));   // 9,4
-gamma_distribution<double> rIH(gamma_alpha(2,1),       gamma_beta(2,1));   // 2,1
-gamma_distribution<double> rIH_pzero(gamma_alpha(5,3), gamma_beta(5,3));   // 5,3
-gamma_distribution<double> rID(gamma_alpha(8,4),       gamma_beta(8,4));   // 8,4 arbitary numbers
-gamma_distribution<double> rV1(gamma_alpha(5,3),       gamma_beta(5,3));   // 5,3
 random_device rd;                       // generates a random real number for the seed
 mt19937 rng;                      // random number generator
-
 
 enum StateType { SUSCEPTIBLE,
                  VAC_PARTIAL,
@@ -89,7 +75,8 @@ class Vaccine {
 class Event_Driven_Ebola_Sim {
   public:
                                 // constructor
-    Event_Driven_Ebola_Sim ( Network* net, const Vaccine& _vac, unsigned int seed = rd()) : vaccine(_vac) {
+    Event_Driven_Ebola_Sim ( Network* net, map<EventType, function<double(mt19937&)> >& _eg, const Vaccine& _vac, unsigned int seed = rd()) : 
+      event_generator(_eg), vaccine(_vac) {
         rng.seed(seed);
         network = net;
         node_vac_immunity.clear();
@@ -99,6 +86,7 @@ class Event_Driven_Ebola_Sim {
     }
 
     Network* network;           // population
+    map<EventType, function<double(mt19937&)> > event_generator;
     const Vaccine vaccine;
     vector<int> vaccine_doses_used;
     vector<pair<double, double> > node_vac_immunity; // time of vaccination, efficacy
@@ -110,38 +98,12 @@ class Event_Driven_Ebola_Sim {
     bool isPatientZero(Node* node) { return node->get_id() == 0; }
 
     double time_to_event (EventType et) {
-        double delta_t = 0.0; // time in days
-        switch (et) {
-            case StoE_EVENT:  // per-neighbor time until contact
-                delta_t = rSE(rng);
-                break;
-            case EtoI_EVENT:  // incubation period
-                delta_t = rEI(rng);
-                break;
-            case ItoR_EVENT:  // infectious period
-                delta_t = rIR(rng);
-                break;
-            case ItoH_EVENT:  // time until hospitalization
-                delta_t = rIH(rng);
-                break;
-            case ItoH_PZERO_EVENT:  // time until hospitalization
-                delta_t = rIH_pzero(rng);
-                break;
-            case ItoD_EVENT:  // time until hospitalization
-                delta_t = rID(rng);
-                break;
-            case V1_EVENT  :  // time from index case is detected until mass vaccination
-                delta_t = rV1(rng);
-                break;
-            case V2_EVENT  :  // time between dose 1 and dose 2
-                delta_t = 28;
-                break;
-            default:
-                cerr << "ERROR: Unsupported event type in time_to_event(): " << et << endl;
-                exit(-3);
-                break;
+        if (event_generator.count(et)) {
+            return event_generator[et](rng);
+        } else {
+            cerr << "ERROR: Unsupported event type in time_to_event(): " << et << endl;
+            exit(-3);
         }
-        return delta_t;
     }
 
     void run_simulation(double duration = numeric_limits<double>::max()) {
@@ -190,7 +152,6 @@ class Event_Driven_Ebola_Sim {
             const double vac_time = node_vac_immunity[node->get_id()].first;
                                                              // current assumption is vaccine abruptly assumes full efficacy after timeToProtection
             const double vac_protection = (vac_time - Now > vaccine.timeToProtection) ? node_vac_immunity[node->get_id()].second : 0.0;
-            const double asdf = runif(rng);
             unprotected_by_vaccine = runif(rng) > vac_protection;
         }
 
