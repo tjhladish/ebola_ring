@@ -11,6 +11,33 @@
 
 using namespace std;
 
+struct NetParameters {
+    NetParameters() {
+        N = 1e3;
+        clusters = 200;
+        mean_deg = 16.0;
+        cluster_kernel_sd = 0.01;
+        wiring_kernel_sd = 0.094;
+        seed = 0;
+    }
+
+    NetParameters(int n, int c, double md, double ck_sd, double wk_sd, unsigned int s) {
+        N = n;
+        clusters = c;
+        mean_deg = md;
+        cluster_kernel_sd = ck_sd;
+        wiring_kernel_sd = wk_sd;
+        seed = s;
+    }
+
+    int N;
+    int clusters;
+    double mean_deg;
+    double cluster_kernel_sd;
+    double wiring_kernel_sd;
+    unsigned int seed;
+};
+
 
 vector<pair<double, double>> generate_spatial_distribution(int N, int clusters, double cluster_kernel_sd, default_random_engine& rng) {
     assert(N >= clusters);
@@ -61,12 +88,13 @@ vector<double> calc_weights(const vector<pair<double, double>> &coords, int refe
 
 
 //Network* generate_ebola_network(Node* p_zero, const unsigned int seed = chrono::system_clock::now().time_since_epoch().count()) {
-Network* generate_ebola_network(const unsigned int seed = chrono::system_clock::now().time_since_epoch().count()) {
-    const int N = 1e3;
-    const int clusters = 200;
-    const double mean_deg = 16.0;
-    const double cluster_kernel_sd = 0.01;
-    const double wiring_kernel_sd = 0.094;
+Network* generate_ebola_network(const NetParameters &par) {
+    const int N = par.N;
+    const int clusters = par.clusters;
+    const double mean_deg = par.mean_deg;
+    const double cluster_kernel_sd = par.cluster_kernel_sd;
+    const double wiring_kernel_sd = par.wiring_kernel_sd;
+    const unsigned int seed = par.seed;
 
     //const unsigned int seed = chrono::system_clock::now().time_since_epoch().count();
     default_random_engine rng(seed);

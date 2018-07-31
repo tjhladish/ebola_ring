@@ -18,7 +18,6 @@ using namespace std;
 //mt19937 gen(seed);
 
 uniform_real_distribution<double> runif(0.0, 1.0);
-random_device rd;                       // generates a random real number for the seed
 mt19937 rng;                      // random number generator
 
 enum StateType { SUSCEPTIBLE,
@@ -72,13 +71,34 @@ class Vaccine {
     double timeToProtection;
 };
 
+struct SimParameters {
+    SimParameters() {
+        network = nullptr;
+        index_case = nullptr;
+        seed = 0;
+        prob_quarantine = 0.0;
+        prob_community_death = 0.0;
+    }
+
+    Network* network;
+    Node* index_case;
+    map<EventType, function<double(mt19937&)> > event_generator;
+    Vaccine vaccine;
+    unsigned int seed;
+    double prob_quarantine;
+    double prob_community_death;
+    };
+
 class Event_Driven_Ebola_Sim {
   public:
                                 // constructor
-    Event_Driven_Ebola_Sim ( Network* net, map<EventType, function<double(mt19937&)> >& _eg, const Vaccine& _vac, unsigned int seed = rd()) : 
-      event_generator(_eg), vaccine(_vac) {
-        rng.seed(seed);
-        network = net;
+    //Event_Driven_Ebola_Sim ( Network* net, map<EventType, function<double(mt19937&)> >& _eg, const Vaccine& _vac, unsigned int seed = rd()) : event_generator(_eg), vaccine(_vac) {
+    Event_Driven_Ebola_Sim (SimParameters& par) : vaccine(par.vaccine) {
+        rng.seed(par.seed);
+        network = par.network;
+        event_generator = par.event_generator;
+        prob_quarantine = par.prob_quarantine;
+        prob_community_death = par.prob_community_death;
         node_vac_immunity.clear();
         node_vac_immunity.resize(network->size(), make_pair(0.0, 0.0));
         vaccine_doses_used = {0, 0}; // doses 1 and 2
@@ -90,6 +110,9 @@ class Event_Driven_Ebola_Sim {
     const Vaccine vaccine;
     vector<int> vaccine_doses_used;
     vector<pair<double, double> > node_vac_immunity; // time of vaccination, efficacy
+    
+    double prob_quarantine;
+    double prob_community_death;
 
     priority_queue<Event, vector<Event>, compTime > EventQ;
     vector<int> state_counts;   // S, E, I, R, etc. counts
@@ -160,6 +183,8 @@ class Event_Driven_Ebola_Sim {
                 double Ti = Now + time_to_event(EtoI_EVENT);      // time to become infectious
                 add_event(Ti, EtoI_EVENT, node);
 
+                // TODO - use probabilities of quarantine, community death
+                // TODO - figure out how to handle the special case of patient zero
                 double Th = Ti;
                 Th += isPatientZero(node) ? time_to_event(ItoH_PZERO_EVENT) : time_to_event(ItoH_EVENT);
                 double Tr = Ti + time_to_event(ItoR_EVENT);
@@ -233,20 +258,15 @@ class Event_Driven_Ebola_Sim {
 
             for (Node* node: network->get_nodes()) {
                 const StateType state = (StateType) node->get_state();
-                if (state == INFECTIOUS) { continue; } // all others will be potentially vaccinated
-
-                if (runif(rng) < vaccine.coverage[dose_idx]) {
+                if (state == eligible_group and runif(rng) < vaccine.coverage[dose_idx]) {
                     vaccine_doses_used[dose_idx]++;
-
-                    if (state == eligible_group) {
-                        update_state(node, eligible_group, converts_to);
-                        const double vac_eff = vaccine.efficacy[dose_idx];
-                        if (vaccine.isLeaky) {
-                            node_vac_immunity[node->get_id()] = make_pair(Now, vac_eff);
-                        } else {
-                            const double r = runif(rng);
-                            node_vac_immunity[node->get_id()] = make_pair(Now, r < vac_eff ? 1.0 : 0.0);
-                        }
+                    update_state(node, eligible_group, converts_to);
+                    const double vac_eff = vaccine.efficacy[dose_idx];
+                    if (vaccine.isLeaky) {
+                        node_vac_immunity[node->get_id()] = make_pair(Now, vac_eff);
+                    } else {
+                        const double r = runif(rng);
+                        node_vac_immunity[node->get_id()] = make_pair(Now, r < vac_eff ? 1.0 : 0.0);
                     }
                 }
             }

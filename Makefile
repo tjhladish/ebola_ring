@@ -11,7 +11,7 @@ INCLUDE = -I$(ABC_PATH) -I$(GSL_PATH)/include/ -I$(EPI_PATH)
 
 LDFLAGS=  $(EPI_PATH)/*.o
 
-default: ebola_net
+default: ebola_sim
 
 epifire: 
 	$(MAKE) -C $(EPI_PATH) -f Makefile
