@@ -39,7 +39,7 @@ struct NetParameters {
 };
 
 
-vector<pair<double, double>> generate_spatial_distribution(int N, int clusters, double cluster_kernel_sd, default_random_engine& rng) {
+vector<pair<double, double>> generate_spatial_distribution(int N, int clusters, double cluster_kernel_sd, mt19937& rng) {
     assert(N >= clusters);
     vector<pair<double, double>> coords(N);
     coords[0]  = make_pair(0.0, 0.0);  // for convenience, always put p_zero at the origin
@@ -97,7 +97,7 @@ Network* generate_ebola_network(const NetParameters &par) {
     const unsigned int seed = par.seed;
 
     //const unsigned int seed = chrono::system_clock::now().time_since_epoch().count();
-    default_random_engine rng(seed);
+    mt19937 rng(seed);
     uniform_real_distribution<double> runif(0.0, 1.0);
 
     Network* ebola_ring = new Network("ebola_ring", Network::Undirected);
@@ -119,8 +119,10 @@ Network* generate_ebola_network(const NetParameters &par) {
     // until exactly the desired degree is achieved
     for (unsigned int i = 1; i < nodes.size(); ++i) {
         if (runif(rng) < weight_coef*weights[i]) {
-            p_zero->connect_to(nodes[i]);
-            ring_1.insert(nodes[i]);
+            Node* n = nodes[i];
+            assert(ring_1.count(n) == 0);
+            p_zero->connect_to(n);
+            ring_1.insert(n);
         }
     }
     cerr << "p-zero degree: " << p_zero->deg() << " " << ring_1.size() << endl;
@@ -142,9 +144,10 @@ Network* generate_ebola_network(const NetParameters &par) {
 
         // this yields an expected degree of mean_deg
         for (unsigned int i = 1; i < nodes.size(); ++i) {
-            if (runif(rng) < weight_coef*weights[i]) {
-                ring1_node->connect_to(nodes[i]);
-                ring_2.insert(nodes[i]);
+            Node* n = nodes[i];
+            if (ring1_node->get_id() < n->get_id() and runif(rng) < weight_coef*weights[i]) {
+                ring1_node->connect_to(n);
+                ring_2.insert(n);
             }
         }
     }
@@ -166,6 +169,45 @@ Network* generate_ebola_network(const NetParameters &par) {
     }*/
     
     return ebola_ring;
+}
+
+void remove_clustering(Network* net, mt19937& rng) {
+    vector<Node*> nodes = net->get_nodes();
+    const Node* p_zero = nodes[0];
+    vector<double> ring_num_vec = p_zero->min_paths(nodes);
+    map<Node*, int> ring_num;
+    for (unsigned int i = 0; i < nodes.size(); ++i) ring_num[nodes[i]] = (int) ring_num_vec[i];
+    set<Edge*> within_ring_edges_to_delete;
+
+    for (Node* n: nodes) {
+        const int r = ring_num[n];
+        cerr << n->get_id() << ", " << r << endl;
+        vector<Node*> inner_nodes; // nodes that are one ring closer to index
+
+        for (Edge* e: n->get_edges_out()) { // let's take a look at n's neighbors
+            Node* m = e->get_end();         // some neighbor m
+            const int r_m = ring_num[m]; // m's ring is r_m
+            if (r == r_m) { 
+                // remove edges between nodes in same ring
+                // NB: edges in EpiFire are inherently directional;
+                // need to delete edge and its complement
+                within_ring_edges_to_delete.insert(e);
+                within_ring_edges_to_delete.insert(e->get_complement());
+            } else if (r == r_m + 1) {
+                inner_nodes.push_back(m); 
+            } else {
+                assert(r == r_m - 1); // only acceptable alternative is one ring farther
+            }
+        }
+        if (inner_nodes.size() > 1) {
+            // Node has multiple connections to inner ring
+            shuffle(inner_nodes.begin(), inner_nodes.end(), rng); 
+            for (unsigned int j = 1; j < inner_nodes.size(); ++j) {
+                n->disconnect_from(inner_nodes[j]);
+            }
+        }
+    }
+    for (Edge* e: within_ring_edges_to_delete) e->delete_edge();
 }
 
 #endif

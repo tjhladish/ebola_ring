@@ -51,7 +51,7 @@ void initialize_parameters(vector<double> &abc_pars, NetParameters &netpar, SimP
     netpar.mean_deg = 16.0;
     netpar.cluster_kernel_sd = 0.01;
     netpar.wiring_kernel_sd = 0.094;
-    netpar.seed = 0;
+    netpar.seed = abc_pars[0];
 
     // Transmission model parameters
     Vaccine vac;
@@ -68,10 +68,11 @@ void initialize_parameters(vector<double> &abc_pars, NetParameters &netpar, SimP
     simpar.prob_community_death = 0.8; // 80%
 }
 
-int main() { 
+int main(int argc, char** argv) { 
     // pull out the network parameterization
     // parameterize quarantine & death probs
-    vector<double> abc_pars;
+    vector<double> abc_pars = {4.0};
+    //vector<double> abc_pars = {(double) atoi(argv[1])};
     NetParameters netpar = {};
     SimParameters simpar = {};
     initialize_parameters(abc_pars, netpar, simpar);
@@ -81,6 +82,17 @@ int main() {
 
     simpar.network    = net;
     simpar.index_case = p_zero;
+
+    //net->dumper();
+    //net->validate();
+    net->write_edgelist("net_w_clustering.csv", Network::NodeIDs);
+    remove_clustering(net, rng);
+    net->validate();
+    net->write_edgelist("net_wo_clustering.csv", Network::NodeIDs);
+    //net->dumper();
+
+    cerr << "Total size after pruning: " << net->size() << endl;
+    cerr << "Transitivity clustering coefficient after pruning: " << net->transitivity() << endl;
 
     for(int i=0; i<1; i++ ) {
         Event_Driven_Ebola_Sim sim(simpar);
