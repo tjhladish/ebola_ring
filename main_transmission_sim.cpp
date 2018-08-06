@@ -1,5 +1,8 @@
 #include "Ring_Generator.h"
 #include "Event_Driven_Ebola_Sim.h"
+#include "AbcSmc.h"
+
+const gsl_rng* GSL_RNG = gsl_rng_alloc (gsl_rng_taus2); // RNG for AbcSmc
 
 /*
 enum EventType { StoE_EVENT,
@@ -35,7 +38,7 @@ map<EventType, function<double(mt19937&)> > initialize_event_generator() {
     return event_generator;
 }
 
-void initialize_parameters(vector<double> &abc_pars, NetParameters &netpar, SimParameters &simpar) {
+void initialize_parameters(vector<double> &abc_args, NetParameters &netpar, SimParameters &simpar) {
     // NB: There are two different random seeds, one for network generation and one for transmission
     // modeling.  This is so that they can separately be varied or fixed.  Variable seeds can be
     // chosen in a number of ways; two that both work on the dev machine are as follows:
@@ -51,7 +54,7 @@ void initialize_parameters(vector<double> &abc_pars, NetParameters &netpar, SimP
     netpar.mean_deg = 16.0;
     netpar.cluster_kernel_sd = 0.01;
     netpar.wiring_kernel_sd = 0.094;
-    netpar.seed = abc_pars[0];
+    netpar.seed = abc_args[0];
 
     // Transmission model parameters
     Vaccine vac;
@@ -62,20 +65,22 @@ void initialize_parameters(vector<double> &abc_pars, NetParameters &netpar, SimP
     vac.isLeaky  = true;
 
     simpar.vaccine = vac;
-    simpar.seed = true_rng();
+    simpar.seed = 0;//true_rng();
     simpar.event_generator = initialize_event_generator();
     simpar.prob_quarantine = 0.33;     // start 1/3, max 2/3
     simpar.prob_community_death = 0.8; // 80%
 }
 
-int main(int argc, char** argv) { 
+vector<double> simulator(vector<double> args, const unsigned long int rng_seed, const unsigned long int serial, const ABC::MPI_par* mp) {
     // pull out the network parameterization
     // parameterize quarantine & death probs
-    vector<double> abc_pars = {4.0};
+    //vector<double> abc_pars = {4.0};
     //vector<double> abc_pars = {(double) atoi(argv[1])};
     NetParameters netpar = {};
     SimParameters simpar = {};
-    initialize_parameters(abc_pars, netpar, simpar);
+    initialize_parameters(args, netpar, simpar);
+    netpar.seed = rng_seed;
+    simpar.seed = rng_seed;
 
     Network* net = generate_ebola_network(netpar); // omit seed argument for seed based on current time
     Node* p_zero = net->get_nodes()[0];          // not elegant, but works for now
@@ -83,23 +88,73 @@ int main(int argc, char** argv) {
     simpar.network    = net;
     simpar.index_case = p_zero;
 
-    //net->dumper();
-    //net->validate();
-    net->write_edgelist("net_w_clustering.csv", Network::NodeIDs);
-    remove_clustering(net, rng);
-    net->validate();
-    net->write_edgelist("net_wo_clustering.csv", Network::NodeIDs);
+//    net->write_edgelist("net_w_clustering.csv", Network::NodeIDs);
+//    remove_clustering(net, rng);
+//    net->validate();
+//    net->write_edgelist("net_wo_clustering.csv", Network::NodeIDs);
     //net->dumper();
 
-    cerr << "Total size after pruning: " << net->size() << endl;
-    cerr << "Transitivity clustering coefficient after pruning: " << net->transitivity() << endl;
+//    cerr << "Total size after pruning: " << net->size() << endl;
+//    cerr << "Transitivity clustering coefficient after pruning: " << net->transitivity() << endl;
 
     for(int i=0; i<1; i++ ) {
         Event_Driven_Ebola_Sim sim(simpar);
-        //Event_Driven_Ebola_Sim sim(net, event_generator, vaccine);
         sim.expose(p_zero);
         sim.run_simulation();
         //cout << sim.current_epidemic_size() << endl;
+    }
+    vector<double> metrics = {p_zero->deg(), net->size()};
+
+    return metrics;
+}
+
+
+
+
+void usage() {
+    cerr << "\n\tUsage: ./abc_sql abc_config_sql.json --process\n\n";
+    cerr << "\t       ./abc_sql abc_config_sql.json --simulate\n\n";
+    cerr << "\t       ./abc_sql abc_config_sql.json --simulate -n <number of simulations per database write>\n\n";
+    cerr << "\t       ./abc_sql abc_config_sql.json --process --simulate -n <number of simulations per database write>\n\n";
+
+}
+
+
+int main(int argc, char* argv[]) {
+
+    if (not (argc == 3 or argc == 5 or argc == 6) ) {
+        usage();
+        exit(100);
+    }
+
+    bool process_db = false;
+    bool simulate_db = false;
+    int buffer_size = -1;
+
+    for (int i=2; i < argc;  i++ ) {
+        if ( strcmp(argv[i], "--process") == 0  ) {
+            process_db = true;
+        } else if ( strcmp(argv[i], "--simulate") == 0  ) {
+            simulate_db = true;
+            buffer_size = buffer_size == -1 ? 1 : buffer_size;
+        } else if ( strcmp(argv[i], "-n" ) == 0 ) {
+            buffer_size = atoi(argv[++i]);
+        } else {
+            usage();
+            exit(101);
+        }
+    }
+
+    AbcSmc* abc = new AbcSmc();
+    abc->parse_config(string(argv[1]));
+    if (process_db) {
+        gsl_rng_set(GSL_RNG, time(NULL) * getpid()); // seed the rng using sys time and the process id
+        abc->process_database(GSL_RNG);
+    }
+
+    if (simulate_db) {
+        abc->set_simulator(simulator);
+        abc->simulate_next_particles(buffer_size);
     }
 
     return 0;

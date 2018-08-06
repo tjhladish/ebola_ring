@@ -30,4 +30,4 @@ degvtime: epifire degree_vs_time.cpp
 	g++ $(FLAGS) degree_vs_time.cpp -o degvtime $(INCLUDE) $(LDFLAGS)
 
 ebola_sim: epifire Ring_Generator.h Event_Driven_Ebola_Sim.h main_transmission_sim.cpp
-	g++ $(FLAGS) main_transmission_sim.cpp -o etsim $(INCLUDE) $(LDFLAGS)
+	g++ $(FLAGS) -Wno-ignored-attributes -Wno-misleading-indentation -Wno-int-in-bool-context main_transmission_sim.cpp -o etsim $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS)

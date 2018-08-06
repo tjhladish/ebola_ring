@@ -92,7 +92,6 @@ struct SimParameters {
 class Event_Driven_Ebola_Sim {
   public:
                                 // constructor
-    //Event_Driven_Ebola_Sim ( Network* net, map<EventType, function<double(mt19937&)> >& _eg, const Vaccine& _vac, unsigned int seed = rd()) : event_generator(_eg), vaccine(_vac) {
     Event_Driven_Ebola_Sim (SimParameters& par) : vaccine(par.vaccine) {
         rng.seed(par.seed);
         network = par.network;
@@ -100,7 +99,7 @@ class Event_Driven_Ebola_Sim {
         prob_quarantine = par.prob_quarantine;
         prob_community_death = par.prob_community_death;
         node_vac_immunity.clear();
-        node_vac_immunity.resize(network->size(), make_pair(0.0, 0.0));
+        for (Node* n: network->get_nodes()) node_vac_immunity[n->get_id()] = make_pair(0.0, 0.0);
         vaccine_doses_used = {0, 0}; // doses 1 and 2
         reset();
     }
@@ -109,8 +108,8 @@ class Event_Driven_Ebola_Sim {
     map<EventType, function<double(mt19937&)> > event_generator;
     const Vaccine vaccine;
     vector<int> vaccine_doses_used;
-    vector<pair<double, double> > node_vac_immunity; // time of vaccination, efficacy
-    
+    map<int,pair<double, double> > node_vac_immunity; // time of vaccination, efficacy
+
     double prob_quarantine;
     double prob_community_death;
 
@@ -201,7 +200,6 @@ class Event_Driven_Ebola_Sim {
                     Ti_end = Td;
                     add_event(Td, ItoD_EVENT, node);
                 }
-
                 for (Node* neighbor: node->get_neighbors()) {     // density-dependent assumption! more neighbors --> more contact per unit time
                     double Tc = Ti + time_to_event(StoE_EVENT);   // time to next contact--we'll worry about whether contact is susceptible at Tc
                     while ( Tc < Ti_end ) {                       // does contact occur before recovery?

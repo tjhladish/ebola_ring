@@ -167,7 +167,7 @@ Network* generate_ebola_network(const NetParameters &par) {
     for (unsigned int i = 0; i < coords.size(); ++i) {
         cout << i << "," << coords[i].first << "," << coords[i].second << endl;
     }*/
-    
+
     return ebola_ring;
 }
 
@@ -187,21 +187,21 @@ void remove_clustering(Network* net, mt19937& rng) {
         for (Edge* e: n->get_edges_out()) { // let's take a look at n's neighbors
             Node* m = e->get_end();         // some neighbor m
             const int r_m = ring_num[m]; // m's ring is r_m
-            if (r == r_m) { 
+            if (r == r_m) {
                 // remove edges between nodes in same ring
                 // NB: edges in EpiFire are inherently directional;
                 // need to delete edge and its complement
                 within_ring_edges_to_delete.insert(e);
                 within_ring_edges_to_delete.insert(e->get_complement());
             } else if (r == r_m + 1) {
-                inner_nodes.push_back(m); 
+                inner_nodes.push_back(m);
             } else {
                 assert(r == r_m - 1); // only acceptable alternative is one ring farther
             }
         }
         if (inner_nodes.size() > 1) {
             // Node has multiple connections to inner ring
-            shuffle(inner_nodes.begin(), inner_nodes.end(), rng); 
+            shuffle(inner_nodes.begin(), inner_nodes.end(), rng);
             for (unsigned int j = 1; j < inner_nodes.size(); ++j) {
                 n->disconnect_from(inner_nodes[j]);
             }
