@@ -49,11 +49,12 @@ void initialize_parameters(vector<double> &abc_args, NetParameters &netpar, SimP
     // It seems plausible that one or the other of these might not work, given alternate sys architecture
 
     // Network construction parameters
-    netpar.N = 1e3;
-    netpar.clusters = 200;
+    netpar.desired_levels = 3; // index case is a level
+    netpar.N = 1e4;
+    netpar.clusters = 2000;
     netpar.mean_deg = 16.0;
-    netpar.cluster_kernel_sd = 0.01;
-    netpar.wiring_kernel_sd = 0.094;
+    netpar.cluster_kernel_sd = abc_args[0]; //0.01;
+    netpar.wiring_kernel_sd  = abc_args[1]; //0.094;
     netpar.seed = abc_args[0];
 
     // Transmission model parameters
@@ -97,13 +98,13 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
 //    cerr << "Total size after pruning: " << net->size() << endl;
 //    cerr << "Transitivity clustering coefficient after pruning: " << net->transitivity() << endl;
 
-    for(int i=0; i<1; i++ ) {
+/*    for(int i=0; i<1; i++ ) {
         Event_Driven_Ebola_Sim sim(simpar);
         sim.expose(p_zero);
         sim.run_simulation();
         //cout << sim.current_epidemic_size() << endl;
-    }
-    vector<double> metrics = {p_zero->deg(), net->size()};
+    }*/
+    vector<double> metrics = {(double) p_zero->deg(), (double) net->size()};
 
     return metrics;
 }

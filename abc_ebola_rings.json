@@ -10,15 +10,17 @@
     "parameters" : [
         {"name"       : "cluster_sd",
          "dist_type"  : "UNIFORM",
+         "untransform"  : "POW_10",
          "num_type"   : "FLOAT",
-         "par1"       : 0.001,
-         "par2"       : 0.5},
+         "par1"       : -4.0,
+         "par2"       : -0.3},
 
         {"name"       : "wiring_sd",
          "dist_type"  : "UNIFORM",
+         "untransform"  : "POW_10",
          "num_type"   : "FLOAT",
-         "par1"       : 0.001,
-         "par2"       : 0.5}
+         "par1"       : -4.0,
+         "par2"       : -0.3}
     ],                
 
     "metrics" : [     
