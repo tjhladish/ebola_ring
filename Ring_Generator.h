@@ -91,7 +91,9 @@ vector<double> calc_weights(const int reference_node_idx, const vector<Node*> &n
 }
 
 
-//Network* generate_ebola_network(Node* p_zero, const unsigned int seed = chrono::system_clock::now().time_since_epoch().count()) {
+bool is_node_in_level(Node* const n, const unordered_set<Node*> &level) { return level.count(n) > 0; }
+
+
 Network* generate_ebola_network(const NetParameters &par) {
     const int N = par.N;
     const int clusters = par.clusters;
@@ -100,7 +102,7 @@ Network* generate_ebola_network(const NetParameters &par) {
     const double wiring_kernel_sd = par.wiring_kernel_sd;
     const unsigned int seed = par.seed;
     const unsigned int desired_levels = par.desired_levels;
-    vector<unordered_set<Node*> > rings(desired_levels+1, unordered_set<Node*>()); // +1 is because p_zero is ring 0
+    vector<unordered_set<Node*> > levels(desired_levels, unordered_set<Node*>());
 
     mt19937 rng(seed);
     uniform_real_distribution<double> runif(0.0, 1.0);
@@ -112,48 +114,52 @@ Network* generate_ebola_network(const NetParameters &par) {
     const int p_zero_idx = 0; // important--we use index to identify p_zero for triggering mass vaccination of group
     Node* p_zero = nodes[p_zero_idx];
     assert(p_zero_idx == nodes[p_zero_idx]->get_id()); // only needs to be true for p_zero
-    rings[0].insert(p_zero);
+    levels[0].insert(p_zero);
 
     // locate nodes, get weights for wiring p_zero
     vector<pair<double, double>> coords = generate_spatial_distribution(N, clusters, cluster_kernel_sd, rng);
     unordered_set<Node*> zero_weight_nodes = {p_zero}; // no incoming edges to p_zero
 
     // this yields an expected degree for each node
-    for (unsigned int ring_idx = 0; ring_idx < rings.size(); ++ring_idx) { // for each ring, inner to outer
-    cerr << "ring idx, size: " << ring_idx << ", " << rings[ring_idx].size() << endl;
-        for (const auto& inner_ring_node: rings[ring_idx]) {                 // look at each node in ring
+    for (unsigned int level_idx = 0; level_idx < levels.size(); ++level_idx) { // for each level, inner to outer
+    //cerr << "level idx, size: " << level_idx << ", " << levels[level_idx].size() << endl;
+        for (const auto& inner_level_node: levels[level_idx]) {                 // look at each node in level
             // calculate weights for whether that node should be connected to others
-            // connections from outer rings back to inner should be disallowed, as well as within-ring
+            // connections from outer levels back to inner should be disallowed, as well as within-level
             // connections that have already been considered (no double jeapardy)
             // so . . . how to determine the zero_weight_nodes membership?
             // TODO - calc_weights does not consider that nodes with lower id will not get wired to nodes with
             // higher id.  I *think* that's okay, because the weight matrix is symmetrical and that potential edge
             // gets considered separately
-            const vector<double> weights = calc_weights(inner_ring_node->get_id(), nodes, coords, wiring_kernel_sd, zero_weight_nodes);
-            const double remaining_expected_degree = ring_idx == 0 ? mean_deg : mean_deg - 1;
+            const vector<double> weights = calc_weights(inner_level_node->get_id(), nodes, coords, wiring_kernel_sd, zero_weight_nodes);
+            const double remaining_expected_degree = level_idx == 0 ? mean_deg : mean_deg - 1;
             const double weight_coef = remaining_expected_degree / accumulate(weights.begin(), weights.end(), 0.0);
             assert(remaining_expected_degree > 0);
             assert(weight_coef > 0);
 
-            for (unsigned int i = 1; i < nodes.size(); ++i) {
+            for (unsigned int i = 0; i < nodes.size(); ++i) {
                 Node* n = nodes[i];
-                // if we're looking at the outermost ring, only consider within-ring connections
-                //cerr << "ring_idx, rings.size()-1: " << ring_idx << ", " << rings.size()-1 << endl;
-                if (ring_idx == rings.size()-1 and rings[ring_idx].count(n) == 0) {
+                if (level_idx == levels.size()-1 and not is_node_in_level(n, levels[level_idx])) {
+                    // if we're looking at the outermost level, we only consider within-level connections
                     continue;
-                }
-                if (inner_ring_node->get_id() < n->get_id() and runif(rng) < weight_coef*weights[i]) {
-                    inner_ring_node->connect_to(n);
+                } else if (is_node_in_level(n, levels[level_idx]) and inner_level_node->get_id() < n->get_id()) {
+                    // each potential connection should only be considered once--make sure we don't ask whether
+                    // 'A' should be connected to 'B' *and* whether 'B' should be connected to 'A'
+                    continue;
+                } else if (runif(rng) < weight_coef*weights[i]) {
+                    inner_level_node->connect_to(n);
                     // if other node not in this level, put it in the next level
-                    if (rings[ring_idx].count(n) == 0) rings[ring_idx+1].insert(n);
-                    //cerr << "linking " << ring_idx << " to " << ring_idx+1 << endl;
+                    if (not is_node_in_level(n, levels[level_idx])) {
+                        levels[level_idx+1].insert(n);
+                        //cerr << "linking " << level_idx << " to " << level_idx+1 << endl;
+                    }
                 }
             }
         }
-        // Now that we're done with that ring, add nodes to zero_weight set so they won't be considered further.
+        // Now that we're done with that level, add nodes to zero_weight set so they won't be considered further.
         // I think this needs to be done as a separate loop to allow within-level edges.
-        for (const auto& inner_ring_node: rings[ring_idx]) {
-            zero_weight_nodes.insert(inner_ring_node);
+        for (const auto& inner_level_node: levels[level_idx]) {
+            zero_weight_nodes.insert(inner_level_node);
         }
     }
 
@@ -163,10 +169,10 @@ Network* generate_ebola_network(const NetParameters &par) {
 	    if (nodes[i]->deg() == 0) ebola_ring->delete_node(nodes[i]);
     }
 
-    cerr << "Total size: " << ebola_ring->size() << endl;
-    cerr << "Ring 1 size: " << rings[1].size() << endl;
-    cerr << "Ring 2 size: " << rings[2].size() << endl;
-    cerr << "Transitivity clustering coefficient: " << ebola_ring->transitivity() << endl;
+//    cerr << "Total size: " << ebola_ring->size() << endl;
+//    cerr << "Level 1 size: " << levels[1].size() << endl;
+//    cerr << "Level 2 size: " << levels[2].size() << endl;
+//    cerr << "Transitivity clustering coefficient: " << ebola_ring->transitivity() << endl;
     /*
     ebola_ring->write_edgelist("ebola_ring.csv", Network::NodeIDs);
 
@@ -181,40 +187,40 @@ Network* generate_ebola_network(const NetParameters &par) {
 void remove_clustering(Network* net, mt19937& rng) {
     vector<Node*> nodes = net->get_nodes();
     const Node* p_zero = nodes[0];
-    vector<double> ring_num_vec = p_zero->min_paths(nodes);
-    map<Node*, int> ring_num;
-    for (unsigned int i = 0; i < nodes.size(); ++i) ring_num[nodes[i]] = (int) ring_num_vec[i];
-    set<Edge*> within_ring_edges_to_delete;
+    vector<double> level_num_vec = p_zero->min_paths(nodes);
+    map<Node*, int> level_of;
+    for (unsigned int i = 0; i < nodes.size(); ++i) level_of[nodes[i]] = (int) level_num_vec[i];
+    set<Edge*> within_level_edges_to_delete;
 
     for (Node* n: nodes) {
-        const int r = ring_num[n];
-        cerr << n->get_id() << ", " << r << endl;
-        vector<Node*> inner_nodes; // nodes that are one ring closer to index
+        const int l_n = level_of[n];
+        cerr << n->get_id() << ", " << l_n << endl;
+        vector<Node*> inner_nodes; // nodes that are one level closer to index
 
         for (Edge* e: n->get_edges_out()) { // let's take a look at n's neighbors
             Node* m = e->get_end();         // some neighbor m
-            const int r_m = ring_num[m]; // m's ring is r_m
-            if (r == r_m) {
-                // remove edges between nodes in same ring
+            const int l_m = level_of[m]; // m's level is l_m
+            if (l_n == l_m) {
+                // remove edges between nodes in same level
                 // NB: edges in EpiFire are inherently directional;
                 // need to delete edge and its complement
-                within_ring_edges_to_delete.insert(e);
-                within_ring_edges_to_delete.insert(e->get_complement());
-            } else if (r == r_m + 1) {
+                within_level_edges_to_delete.insert(e);
+                within_level_edges_to_delete.insert(e->get_complement());
+            } else if (l_n == l_m + 1) {
                 inner_nodes.push_back(m);
             } else {
-                assert(r == r_m - 1); // only acceptable alternative is one ring farther
+                assert(l_n == l_m - 1); // only acceptable alternative is one level farther
             }
         }
         if (inner_nodes.size() > 1) {
-            // Node has multiple connections to inner ring
+            // Node has multiple connections to inner level
             shuffle(inner_nodes.begin(), inner_nodes.end(), rng);
             for (unsigned int j = 1; j < inner_nodes.size(); ++j) {
                 n->disconnect_from(inner_nodes[j]);
             }
         }
     }
-    for (Edge* e: within_ring_edges_to_delete) e->delete_edge();
+    for (Edge* e: within_level_edges_to_delete) e->delete_edge();
 }
 
 #endif
