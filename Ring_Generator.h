@@ -6,7 +6,7 @@
 #include <chrono>
 #include <assert.h>
 #include <Network.h>
-#include <unordered_set>
+#include <set>
 #include <numeric>
 
 using namespace std;
@@ -67,7 +67,7 @@ vector<pair<double, double>> generate_spatial_distribution(int N, int clusters, 
 
 
 //vector<double> calc_weights(const vector<pair<double, double>> &coords, int reference_node, double wiring_kernel_sd) {
-vector<double> calc_weights(const int reference_node_idx, const vector<Node*> &nodes, const vector<pair<double, double>> &coords, double wiring_kernel_sd, unordered_set<Node*> zero_weight_nodes) {
+vector<double> calc_weights(const int reference_node_idx, const vector<Node*> &nodes, const vector<pair<double, double>> &coords, double wiring_kernel_sd, set<Node*> zero_weight_nodes) {
     assert(reference_node_idx < (signed) coords.size());
     assert(nodes.size() == coords.size());
     vector<double> weights(coords.size(), 0.0); // important to initialize vals to 0
@@ -91,7 +91,10 @@ vector<double> calc_weights(const int reference_node_idx, const vector<Node*> &n
 }
 
 
-bool is_node_in_level(Node* const n, const unordered_set<Node*> &level) { return level.count(n) > 0; }
+struct NodePtrComp { bool operator()(const Node* A, const Node* B) const { return A->get_id() < B->get_id(); } };
+
+
+bool is_node_in_level(Node* const n, const set<Node*, NodePtrComp> &level) { return level.count(n) > 0; }
 
 
 Network* generate_ebola_network(const NetParameters &par) {
@@ -102,7 +105,7 @@ Network* generate_ebola_network(const NetParameters &par) {
     const double wiring_kernel_sd = par.wiring_kernel_sd;
     const unsigned int seed = par.seed;
     const unsigned int desired_levels = par.desired_levels;
-    vector<unordered_set<Node*> > levels(desired_levels, unordered_set<Node*>());
+    vector<set<Node*, NodePtrComp> > levels(desired_levels, set<Node*, NodePtrComp>());
 
     mt19937 rng(seed);
     uniform_real_distribution<double> runif(0.0, 1.0);
@@ -118,7 +121,7 @@ Network* generate_ebola_network(const NetParameters &par) {
 
     // locate nodes, get weights for wiring p_zero
     vector<pair<double, double>> coords = generate_spatial_distribution(N, clusters, cluster_kernel_sd, rng);
-    unordered_set<Node*> zero_weight_nodes = {p_zero}; // no incoming edges to p_zero
+    set<Node*> zero_weight_nodes = {p_zero}; // no incoming edges to p_zero
 
     // this yields an expected degree for each node
     for (unsigned int level_idx = 0; level_idx < levels.size(); ++level_idx) { // for each level, inner to outer
@@ -136,7 +139,6 @@ Network* generate_ebola_network(const NetParameters &par) {
             const double weight_coef = remaining_expected_degree / accumulate(weights.begin(), weights.end(), 0.0);
             assert(remaining_expected_degree > 0);
             assert(weight_coef > 0);
-
             for (unsigned int i = 0; i < nodes.size(); ++i) {
                 Node* n = nodes[i];
                 if (level_idx == levels.size()-1 and not is_node_in_level(n, levels[level_idx])) {
@@ -163,7 +165,7 @@ Network* generate_ebola_network(const NetParameters &par) {
         }
     }
 
-    cerr << "p-zero degree: " << p_zero->deg() << endl;
+//    cerr << "p-zero degree: " << p_zero->deg() << endl;
 
 	for (unsigned int i = 1; i < nodes.size(); ++i) { // always leave p_zero
 	    if (nodes[i]->deg() == 0) ebola_ring->delete_node(nodes[i]);
@@ -194,7 +196,7 @@ void remove_clustering(Network* net, mt19937& rng) {
 
     for (Node* n: nodes) {
         const int l_n = level_of[n];
-        cerr << n->get_id() << ", " << l_n << endl;
+//        cerr << n->get_id() << ", " << l_n << endl;
         vector<Node*> inner_nodes; // nodes that are one level closer to index
 
         for (Edge* e: n->get_edges_out()) { // let's take a look at n's neighbors
