@@ -97,7 +97,7 @@ struct NodePtrComp { bool operator()(const Node* A, const Node* B) const { retur
 bool is_node_in_level(Node* const n, const set<Node*, NodePtrComp> &level) { return level.count(n) > 0; }
 
 
-Network* generate_ebola_network(const NetParameters &par) {
+Network* generate_ebola_network(const NetParameters &par, map<Node*, int> &level_of) {
     const int N = par.N;
     const int clusters = par.clusters;
     const double mean_deg = par.mean_deg;
@@ -118,6 +118,7 @@ Network* generate_ebola_network(const NetParameters &par) {
     Node* p_zero = nodes[p_zero_idx];
     assert(p_zero_idx == nodes[p_zero_idx]->get_id()); // only needs to be true for p_zero
     levels[0].insert(p_zero);
+    level_of[p_zero] = 0;
 
     // locate nodes, get weights for wiring p_zero
     vector<pair<double, double>> coords = generate_spatial_distribution(N, clusters, cluster_kernel_sd, rng);
@@ -153,6 +154,7 @@ Network* generate_ebola_network(const NetParameters &par) {
                     // if other node not in this level, put it in the next level
                     if (not is_node_in_level(n, levels[level_idx])) {
                         levels[level_idx+1].insert(n);
+                        level_of[n] = level_idx+1;
                         //cerr << "linking " << level_idx << " to " << level_idx+1 << endl;
                     }
                 }
@@ -170,7 +172,8 @@ Network* generate_ebola_network(const NetParameters &par) {
 	for (unsigned int i = 1; i < nodes.size(); ++i) { // always leave p_zero
 	    if (nodes[i]->deg() == 0) ebola_ring->delete_node(nodes[i]);
     }
-
+    
+    ebola_ring->reset_node_ids();
 //    cerr << "Total size: " << ebola_ring->size() << endl;
 //    cerr << "Level 1 size: " << levels[1].size() << endl;
 //    cerr << "Level 2 size: " << levels[2].size() << endl;

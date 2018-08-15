@@ -20,7 +20,7 @@ using namespace std;
 uniform_real_distribution<double> runif(0.0, 1.0);
 mt19937 rng;                      // random number generator
 
-enum StateType { SUSCEPTIBLE,
+enum StateType { SUSCEPTIBLE,          // expected to be first for data log
                  VAC_PARTIAL,
                  VAC_FULL,
                  EXPOSED,
@@ -46,9 +46,10 @@ class Event {
     double time;
     EventType type;
     Node* node;
-    Event(const Event& o) {  time=o.time; type=o.type; node=o.node; }
-    Event(double t, EventType e, Node* n) { time=t; type=e; node=n; }
-    Event& operator=(const Event& o) { time=o.time; type=o.type; node=o.node; return *this; }
+    Node* source; // for exposure events
+    Event(const Event& o) {  time=o.time; type=o.type; node=o.node; source=o.source; }
+    Event(double t, EventType e, Node* n, Node* s = nullptr) { time=t; type=e; node=n; source=s; }
+    Event& operator=(const Event& o) { time=o.time; type=o.type; node=o.node; source=o.source; return *this; }
 };
 
 class compTime {
@@ -101,6 +102,9 @@ class Event_Driven_Ebola_Sim {
         node_vac_immunity.clear();
         for (Node* n: network->get_nodes()) node_vac_immunity[n->get_id()] = make_pair(0.0, 0.0);
         vaccine_doses_used = {0, 0}; // doses 1 and 2
+        log_data.clear();
+        // Log data, mostly for transition times.  Don't need to log S time, but do want to track infecting contact.
+        log_data.resize(network->size(), vector<double>(NUM_OF_STATE_TYPES, -1));
         reset();
     }
 
@@ -117,6 +121,8 @@ class Event_Driven_Ebola_Sim {
     vector<int> state_counts;   // S, E, I, R, etc. counts
     double Now;                 // Current "time" in simulation
 
+    vector< vector<double> > log_data;
+
     bool isPatientZero(Node* node) { return node->get_id() == 0; }
 
     double time_to_event (EventType et) {
@@ -128,12 +134,12 @@ class Event_Driven_Ebola_Sim {
         }
     }
 
-    void run_simulation(double duration = numeric_limits<double>::max()) {
+    vector< vector<double> > run_simulation(double duration = numeric_limits<double>::max()) {
         double start_time = Now;
         int day = (int) Now;
         while (next_event() and Now < start_time + duration) {
-            if ((int) Now > day) {
-                cout << "(SvV | EI | HRD) " << Now << " :\t"
+/*            if ((int) Now > day) {
+                cerr << "(SvV | EI | HRD) " << Now << " :\t"
                                   << state_counts[SUSCEPTIBLE] << "\t"
                                   << state_counts[VAC_PARTIAL] << "\t"
                                   << state_counts[VAC_FULL] << "\t|\t"
@@ -143,14 +149,19 @@ class Event_Driven_Ebola_Sim {
                                   << state_counts[RECOVERED] << "\t"
                                   << state_counts[DEAD] << endl;
                 day = (int) Now;
-            }
+            }*/
 
             continue;
         }
+        return log_data;
     }
 
     int current_epidemic_size() {
         return state_counts[EXPOSED] + state_counts[INFECTIOUS];
+    }
+
+    int final_size() {
+        return state_counts[EXPOSED] + state_counts[INFECTIOUS] + state_counts[HOSPITALIZED] + state_counts[RECOVERED] + state_counts[DEAD];
     }
 
     void reset() {
@@ -165,7 +176,7 @@ class Event_Driven_Ebola_Sim {
         EventQ = priority_queue<Event, vector<Event>, compTime > ();
     }
 
-    bool expose(Node* node) {
+    bool expose(Node* node, const int source_id) {
         //cerr << "node: " << node->get_id() << endl;
         bool didTransmissionOccur = false;
         StateType state = (StateType) node->get_state();
@@ -173,7 +184,7 @@ class Event_Driven_Ebola_Sim {
         if (state == VAC_PARTIAL or state == VAC_FULL) {     // determine if node is protected by vaccine
             const double vac_time = node_vac_immunity[node->get_id()].first;
                                                              // current assumption is vaccine abruptly assumes full efficacy after timeToProtection
-            const double vac_protection = (vac_time - Now > vaccine.timeToProtection) ? node_vac_immunity[node->get_id()].second : 0.0;
+            const double vac_protection = (Now - vac_time > vaccine.timeToProtection) ? node_vac_immunity[node->get_id()].second : 0.0;
             unprotected_by_vaccine = runif(rng) > vac_protection;
         }
 
@@ -200,14 +211,16 @@ class Event_Driven_Ebola_Sim {
                     Ti_end = Td;
                     add_event(Td, ItoD_EVENT, node);
                 }
-                for (Node* neighbor: node->get_neighbors()) {     // density-dependent assumption! more neighbors --> more contact per unit time
-                    double Tc = Ti + time_to_event(StoE_EVENT);   // time to next contact--we'll worry about whether contact is susceptible at Tc
-                    while ( Tc < Ti_end ) {                       // does contact occur before recovery?
-                        add_event(Tc, StoE_EVENT, neighbor);      // potential transmission event
-                        Tc += time_to_event(StoE_EVENT);          // if vaccine is leaky, or successful transmission is probabilistic, this is impt
+                for (Node* neighbor: node->get_neighbors()) {      // density-dependent assumption! more neighbors --> more contact per unit time
+                    double Tc = Ti + time_to_event(StoE_EVENT);    // time to next contact--we'll worry about whether contact is susceptible at Tc
+                    while ( Tc < Ti_end ) {                        // does contact occur before recovery?
+                        add_event(Tc, StoE_EVENT, neighbor, node); // potential transmission event
+                        Tc += time_to_event(StoE_EVENT);           // if vaccine is leaky, or successful transmission is probabilistic, this is impt
                     }
                 }
                 didTransmissionOccur = true;
+                log_data[node->get_id()][EXPOSED] = Now;
+                log_data[node->get_id()][0] = source_id;
                 update_state(node, state, EXPOSED);
             }
         } else if (state == EXPOSED or state == INFECTIOUS or state == RECOVERED or state == HOSPITALIZED or state == DEAD) {
@@ -258,6 +271,7 @@ class Event_Driven_Ebola_Sim {
                 const StateType state = (StateType) node->get_state();
                 if (state == eligible_group and runif(rng) < vaccine.coverage[dose_idx]) {
                     vaccine_doses_used[dose_idx]++;
+                    log_data[node->get_id()][converts_to] = Now;
                     update_state(node, eligible_group, converts_to);
                     const double vac_eff = vaccine.efficacy[dose_idx];
                     if (vaccine.isLeaky) {
@@ -285,22 +299,26 @@ class Event_Driven_Ebola_Sim {
             Node* node = event.node;
             switch(event.type) {
                 case EtoI_EVENT:
+                    log_data[node->get_id()][INFECTIOUS] = Now;
                     update_state(node, EXPOSED, INFECTIOUS);
                     break;
                 case ItoR_EVENT:    // recovery event
+                    log_data[node->get_id()][RECOVERED] = Now;
                     update_state(node, INFECTIOUS, RECOVERED);
                     break;
                 case ItoH_EVENT:    // hospitalization event
+                    log_data[node->get_id()][HOSPITALIZED] = Now;
                     update_state(node, INFECTIOUS, HOSPITALIZED);
                     if (isPatientZero(node)) { schedule_vaccinations(); }
                     break;
                 case ItoD_EVENT:    // death event
+                    log_data[node->get_id()][DEAD] = Now;
                     update_state(node, INFECTIOUS, DEAD);
                     if (isPatientZero(node)) { schedule_vaccinations(); }
                     break;
                 case StoE_EVENT:    // a contact event--contacted node might not actually be susceptible
                     //if (expose(node)) { update_state(node, SUSCEPTIBLE, EXPOSED); }
-                    expose(node);
+                    expose(node, event.source->get_id());
                     break;
                 case V1_EVENT:      // intentional fall-through to V2_EVENT
                 case V2_EVENT:
@@ -315,8 +333,8 @@ class Event_Driven_Ebola_Sim {
         }
     }
 
-    void add_event( double time, EventType et, Node* node = nullptr) {
-        EventQ.push( Event(time,et,node) );
+    void add_event( double time, EventType et, Node* node = nullptr, Node* source = nullptr) {
+        EventQ.push( Event(time,et,node,source) );
         return;
     }
 };
