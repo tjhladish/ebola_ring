@@ -11,7 +11,7 @@ if(Sys.info()[["user"]] == "Rosalind") {
 }
 
 # this is the column labels for the event.time, which doesnt have a header column 
-event.time.labels <- read.table(paste0(output.location, "event_time.columns"))[1,]
+event.time.labels <- read.table(paste0(output.location, "event_time.columns"))[1,] %>% unlist %>% unname %>% as.character
 # serial: is how you match output to the database (0-399,999)
 # and (using arithmetic) match up with the network files
 # unique serial for each simulation
@@ -24,8 +24,8 @@ event.time.labels <- read.table(paste0(output.location, "event_time.columns"))[1
 # event_time.log == big file
 # paired with event_time.columns
 # serials are used for matching
-events <- read.table(paste0(output.location, "event_time.log")) %>% data.table
-colnames(events )
+events <- fread(paste0(output.location, "event_time.log")) %>% data.table
+colnames(events) <- event.time.labels
 
 # network files
 # the _0 means there is no clustering
