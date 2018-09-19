@@ -138,7 +138,7 @@ class Event_Driven_Ebola_Sim {
         double start_time = Now;
         int day = (int) Now;
         while (next_event() and Now < start_time + duration) {
-/*            if ((int) Now > day) {
+            if ((int) Now > day) {
                 cerr << "(SvV | EI | HRD) " << Now << " :\t"
                                   << state_counts[SUSCEPTIBLE] << "\t"
                                   << state_counts[VAC_PARTIAL] << "\t"
@@ -149,7 +149,7 @@ class Event_Driven_Ebola_Sim {
                                   << state_counts[RECOVERED] << "\t"
                                   << state_counts[DEAD] << endl;
                 day = (int) Now;
-            }*/
+            }
 
             continue;
         }

@@ -26,7 +26,7 @@ random_device true_rng;
 
 map<EventType, function<double(mt19937&)> > initialize_event_generator() {
     map<EventType, function<double(mt19937&)> > event_generator = {
-        {StoE_EVENT,      gamma_distribution<double>(gamma_alpha(3,2), gamma_beta(3,2))},   // 2,1 are totally arbitary--prob needs to be fit
+        {StoE_EVENT,      gamma_distribution<double>(gamma_alpha(2,1), gamma_beta(2,1))},   // 2,1 are totally arbitary--prob needs to be fit
         {EtoI_EVENT,      gamma_distribution<double>(gamma_alpha(6,2), gamma_beta(6,2))},   // 6,2
         {ItoR_EVENT,      gamma_distribution<double>(gamma_alpha(9,4), gamma_beta(9,4))},   // 9,4
         {ItoH_EVENT,      gamma_distribution<double>(gamma_alpha(2,1), gamma_beta(2,1))},   // 2,1

@@ -126,7 +126,7 @@ Network* generate_ebola_network(const NetParameters &par, map<Node*, int> &level
 
     // this yields an expected degree for each node
     for (unsigned int level_idx = 0; level_idx < levels.size(); ++level_idx) { // for each level, inner to outer
-    //cerr << "level idx, size: " << level_idx << ", " << levels[level_idx].size() << endl;
+    cerr << "level idx, size: " << level_idx << ", " << levels[level_idx].size() << endl;
         for (const auto& inner_level_node: levels[level_idx]) {                 // look at each node in level
             // calculate weights for whether that node should be connected to others
             // connections from outer levels back to inner should be disallowed, as well as within-level
