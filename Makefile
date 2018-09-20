@@ -19,8 +19,8 @@ epifire:
 libabc:
 	$(MAKE) -C $(ABC_PATH) -f Makefile
 
-ebola_net: epifire main.cpp
-	g++ $(FLAGS) main.cpp -o ebola $(INCLUDE) $(GSL_LIB) $(LDFLAGS)
+ebola_net: epifire libabc Ring_Generator.h main_net_gen.cpp
+	g++ $(FLAGS) -Wno-ignored-attributes -Wno-misleading-indentation -Wno-int-in-bool-context main_net_gen.cpp -o ebola_net $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS)
 
 ebola_abc: epifire libabc main_abc.cpp
 	#g++ $(FLAGS) -Wno-ignored-attributes -Wno-misleading-indentation main_abc.cpp -o ebola_abc $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS)
@@ -29,5 +29,5 @@ ebola_abc: epifire libabc main_abc.cpp
 degvtime: epifire degree_vs_time.cpp
 	g++ $(FLAGS) degree_vs_time.cpp -o degvtime $(INCLUDE) $(LDFLAGS)
 
-ebola_sim: epifire Ring_Generator.h Event_Driven_Ebola_Sim.h main_transmission_sim.cpp
+ebola_sim: epifire libabc Ring_Generator.h Event_Driven_Ebola_Sim.h main_transmission_sim.cpp
 	g++ $(FLAGS) -Wno-ignored-attributes -Wno-misleading-indentation -Wno-int-in-bool-context main_transmission_sim.cpp -o etsim $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS)
