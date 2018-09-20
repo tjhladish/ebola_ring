@@ -22,7 +22,7 @@ enum EventType { StoE_EVENT,
 
 inline double gamma_alpha(double mean, double sd) {return pow(mean/sd, 2);}
 inline double gamma_beta(double mean, double sd) {return pow(mean/pow(sd,2), 1.0/3);}
-random_device true_rng;
+//random_device true_rng;
 
 map<EventType, function<double(mt19937&)> > initialize_event_generator() {
     map<EventType, function<double(mt19937&)> > event_generator = {
@@ -58,8 +58,9 @@ void initialize_parameters(vector<double> &abc_args, NetParameters &netpar, SimP
 
     // Transmission model parameters
 	bool use_vac = (bool) abc_args[4];
+    double vac_eff1 = abc_args[5];
     Vaccine vac;
-    vac.efficacy = {1.0, 0.0};   // single dose vaccine
+    vac.efficacy = {vac_eff1, 0.0};   // single dose vaccine
     //vac.efficacy = {0.8, 0.9}; // two dose vaccine
     if (use_vac) {
         vac.coverage = {0.5, 1.0};
@@ -134,6 +135,7 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
                               (double) sim.final_size()};
 
     cerr << metrics[0] << "\t" << metrics[1] << "\t" << metrics[2] << "\t" << metrics[3] << endl;
+
     return metrics;
 }
 
