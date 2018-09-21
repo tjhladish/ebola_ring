@@ -76,7 +76,7 @@ vector<double> calc_weights(const int reference_node_idx, const vector<Node*> &n
     const double x1 = coords[reference_node_idx].first;
     const double y1 = coords[reference_node_idx].second;
     for (unsigned int i = 0; i < weights.size(); ++i) {
-        if (zero_weight_nodes.count(nodes[i]) > 0) {
+        if (nodes[i]->get_id() == reference_node_idx or zero_weight_nodes.count(nodes[i]) > 0) {
             // never connect back to p_zero, to self (sometimes that's the same thing), or to an inner ring (already wired)
             // leave weight at 0
             continue;
@@ -126,7 +126,7 @@ Network* generate_ebola_network(const NetParameters &par, map<Node*, int> &level
 
     // this yields an expected degree for each node
     for (unsigned int level_idx = 0; level_idx < levels.size(); ++level_idx) { // for each level, inner to outer
-    cerr << "level idx, size: " << level_idx << ", " << levels[level_idx].size() << endl;
+        cerr << "level idx, size: " << level_idx << ", " << levels[level_idx].size() << endl;
         for (const auto& inner_level_node: levels[level_idx]) {                 // look at each node in level
             // calculate weights for whether that node should be connected to others
             // connections from outer levels back to inner should be disallowed, as well as within-level
@@ -145,9 +145,10 @@ Network* generate_ebola_network(const NetParameters &par, map<Node*, int> &level
                 if (level_idx == levels.size()-1 and not is_node_in_level(n, levels[level_idx])) {
                     // if we're looking at the outermost level, we only consider within-level connections
                     continue;
-                } else if (is_node_in_level(n, levels[level_idx]) and inner_level_node->get_id() < n->get_id()) {
+                } else if (is_node_in_level(n, levels[level_idx]) and inner_level_node->get_id() <= n->get_id()) {
                     // each potential connection should only be considered once--make sure we don't ask whether
                     // 'A' should be connected to 'B' *and* whether 'B' should be connected to 'A'
+		    // Also, disallow connections to self
                     continue;
                 } else if (runif(rng) < weight_coef*weights[i]) {
                     inner_level_node->connect_to(n);
