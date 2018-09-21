@@ -84,7 +84,8 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
     netpar.seed = rng_seed;
     simpar.seed = rng_seed;
 
-    Network* net = generate_ebola_network(netpar); // omit seed argument for seed based on current time
+    map<Node*, int> level_of;
+    Network* net = generate_ebola_network(netpar, level_of); // omit seed argument for seed based on current time
     Node* p_zero = net->get_nodes()[0];          // not elegant, but works for now
 
     simpar.network    = net;
@@ -105,7 +106,25 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
         sim.run_simulation();
         //cout << sim.current_epidemic_size() << endl;
     }*/
+    //vector<double> metrics = {(double) p_zero->deg(), (double) net->size()};
+    // not fitting to transitivity, but want to know it for a bit of analysis
+
+    vector<Node*> inner_nodes;
+    for (Node* n: net->get_nodes()) {
+        //cout << serial << " " << n->get_id() << " " << level_of[n] << endl;
+        if (level_of[n] < 2) inner_nodes.push_back(n);
+    }
+
+    double trans = net->transitivity();
+    trans = isfinite(trans) ? trans : -99999.9;
+
+    double inner_trans = net->transitivity(inner_nodes);
+    inner_trans = isfinite(inner_trans) ? inner_trans : -99999.9;
+    net->validate();
+    //vector<double> metrics = {(double) p_zero->deg(), (double) net->size(), trans, inner_trans};
     vector<double> metrics = {(double) p_zero->deg(), (double) net->size()};
+    //net->write_edgelist(ABC::toString(serial) + ".csv", Network::NodeIDs);
+    cerr << net->size() << " " << inner_nodes.size() << " " << trans << " " << inner_trans << endl;
 
     return metrics;
 }
