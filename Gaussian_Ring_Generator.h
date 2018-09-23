@@ -8,6 +8,7 @@
 #include <Network.h>
 #include <set>
 #include <numeric>
+#include <unistd.h>
 
 using namespace std;
 
