@@ -56,10 +56,10 @@ ebola_net: main_net_gen.cpp Ring_Generator.h epifire libabc
 degvtime: degree_vs_time.cpp epifire
 	g++ $(FLAGS) $< -o $@ $(INCLUDE) $(LDFLAGS)
 
-etsim: main_transmission_sim.cpp Ring_Generator.h Event_Driven_Ebola_Sim.h epifire libabc
+ebola_sim: main_transmission_sim.cpp Ring_Generator.h Event_Driven_Ebola_Sim.h epifire libabc
 	g++ $(FLAGS) $(OPTS) $< -o $@ $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS)
 
-SIMS = ebola_net degvtime etsim
+SIMS = ebola_net degvtime ebola_sim
 
 clean:
 	rm $(SIMS)
