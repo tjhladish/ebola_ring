@@ -142,12 +142,14 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
         //net->write_edgelist(ABC::toString(serial) + "_gauss.csv", Network::NodeIDs);
         //cerr << net->size() << " " << inner_nodes.size() << " " << trans << " " << inner_trans << endl;
         //vector<double> metrics = {(double) p_zero->deg(), (double) net->size(), trans, inner_trans};
+        delete net;
     }
     //vector<double> metrics = {(double) p_zero->deg(), (double) net->size()};
     vector<double> metrics = {mean(  level_sizes[0] ),
                               stdev( level_sizes[0] ),
                               mean(  level_sizes[1] ),
                               stdev( level_sizes[1] )};
+    //cerr << metrics[0] << " " << metrics[1] << " " << metrics[2] << " " << metrics[3] << endl;
 
     return metrics;
 }

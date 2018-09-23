@@ -65,27 +65,28 @@ vector<pair<double, double>> generate_spatial_distribution(int N, int clusters, 
 }
 
 
-vector<double> calc_weights(const int reference_node_idx, const vector<Node*> &nodes, const vector<pair<double, double>> &coords, double wiring_kernel_sd, set<Node*> zero_weight_nodes=set<Node*>()) {
-    assert(reference_node_idx < (signed) coords.size());
-    assert(nodes.size() == coords.size());
-    vector<double> weights(coords.size(), 0.0); // important to initialize vals to 0
+double calc_weights(const vector<Node*> &nodes, const vector<pair<double, double>> &coords, const double wiring_kernel_sd, vector<vector<double>>& basic_weights) {
+    const unsigned int N = nodes.size();
+    assert(coords.size() == N);
+    assert(basic_weights.size() == N);
+    assert(basic_weights[0].size() == N);
+    double total_weight = 0.0;
     const double wiring_kernel_var = pow(wiring_kernel_sd, 2);
 
-    const double x1 = coords[reference_node_idx].first;
-    const double y1 = coords[reference_node_idx].second;
-    for (unsigned int i = 0; i < weights.size(); ++i) {
-        if (nodes[i]->get_id() == reference_node_idx or zero_weight_nodes.count(nodes[i]) > 0) {
-            // never connect back to p_zero, to self (sometimes that's the same thing), or to an inner ring (already wired)
-            // leave weight at 0
-            continue;
+    for (unsigned int i = 0; i < N; ++i) {
+        const double x1 = coords[i].first;
+        const double y1 = coords[i].second;
+        for (unsigned int j = i+1; j < N; ++j) {
+            const double x2 = coords[j].first;
+            const double y2 = coords[j].second;
+            const double distance = sqrt(pow(x2-x1,2) + pow(y2-y1,2));
+            basic_weights[i][j] = normal_pdf(distance, 0.0, wiring_kernel_var);
+            basic_weights[j][i] = basic_weights[i][j];
+            total_weight += 2*basic_weights[i][j];
         }
-        const double x2 = coords[i].first;
-        const double y2 = coords[i].second;
-        const double distance = sqrt(pow(x2-x1,2) + pow(y2-y1,2));
-        weights[i] = normal_pdf(distance, 0.0, wiring_kernel_var);
     }
 
-    return weights;
+    return total_weight;
 }
 
 
@@ -120,13 +121,8 @@ Network* generate_ebola_network(const NetParameters &par, map<Node*, int> &level
 
     // locate nodes, get weights for wiring p_zero
     vector<pair<double, double>> coords = generate_spatial_distribution(N, clusters, cluster_kernel_sd, rng);
-    vector<vector<double>> basic_weights(N, vector<double>(N));
-    double total_weight = 0.0;
-    for (unsigned int id = 0; id < nodes.size(); ++id) {
-        assert((signed) id == nodes[id]->get_id());
-        basic_weights[id] = calc_weights(id, nodes, coords, wiring_kernel_sd);
-        total_weight += accumulate(basic_weights[id].begin(), basic_weights[id].end(), 0.0);
-    }
+    vector<vector<double>> basic_weights(N, vector<double>(N,0.0));
+    const double total_weight = calc_weights(nodes, coords, wiring_kernel_sd, basic_weights);
     const double weight_coef = (N*mean_deg)/total_weight;
     //for (auto point: coords) cerr << point.first << " " << point.second << endl;
 
