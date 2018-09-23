@@ -22,10 +22,6 @@ libabc:
 ebola_net: epifire libabc Ring_Generator.h main_net_gen.cpp
 	g++ $(FLAGS) -Wno-ignored-attributes -Wno-misleading-indentation -Wno-int-in-bool-context main_net_gen.cpp -o ebola_net $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS)
 
-ebola_abc: epifire libabc main_abc.cpp
-	#g++ $(FLAGS) -Wno-ignored-attributes -Wno-misleading-indentation main_abc.cpp -o ebola_abc $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS)
-	g++ $(FLAGS) main_abc.cpp -o ebola_abc $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS)
-
 degvtime: epifire degree_vs_time.cpp
 	g++ $(FLAGS) degree_vs_time.cpp -o degvtime $(INCLUDE) $(LDFLAGS)
 

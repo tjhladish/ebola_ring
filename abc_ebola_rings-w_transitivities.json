@@ -1,0 +1,43 @@
+{
+    "smc_iterations" : 10,
+    "num_samples"    : 2000,
+    "predictive_prior_fraction" : 0.05,
+    "pls_training_fraction"     : 0.5,
+    "noise"                     : "MULTIVARIATE",
+
+    "database_filename"             : "ebola_rings_posterior-w_transitivities.sqlite",
+
+    "parameters" : [
+        {"name"       : "cluster_sd",
+         "dist_type"  : "UNIFORM",
+         "untransform"  : "POW_10",
+         "num_type"   : "FLOAT",
+         "par1"       : -4.0,
+         "par2"       : -0.3},
+
+        {"name"       : "wiring_sd",
+         "dist_type"  : "UNIFORM",
+         "untransform"  : "POW_10",
+         "num_type"   : "FLOAT",
+         "par1"       : -4.0,
+         "par2"       : -0.3}
+    ],
+
+    "metrics" : [
+        {"name"       : "ring1",
+         "num_type"   : "FLOAT",
+         "value"      : 16},
+
+        {"name"       : "N",
+         "num_type"   : "FLOAT",
+         "value"      : 80},
+
+        {"name"       : "trans",
+         "num_type"   : "FLOAT",
+         "value"      : 0},
+
+        {"name"       : "inner_trans",
+         "num_type"   : "FLOAT",
+         "value"      : 0}
+    ]
+}
