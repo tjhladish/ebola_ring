@@ -1,4 +1,4 @@
-#include "Ring_Generator.h"
+#include "Gaussian_Ring_Generator.h"
 #include "Event_Driven_Ebola_Sim.h"
 #include "AbcSmc.h"
 
@@ -50,9 +50,12 @@ void initialize_parameters(vector<double> &abc_args, NetParameters &netpar, SimP
 
     // Network construction parameters
     netpar.desired_levels = 3; // index case is a level
-    netpar.N = 1e4;
-    netpar.clusters = 2000;
     netpar.mean_deg = 16.0;
+    // N = 10x larger than the net size given simple branching process
+    // (using sum of first n terms of geometric series)
+    netpar.N = (int) (10*(1.0-pow(netpar.mean_deg, netpar.desired_levels)) / (1.0 - netpar.mean_deg));//1e4;
+    //netpar.clusters = (int) (netpar.N / 1.0);
+    netpar.clusters = (int) (netpar.N / 5.0);
     netpar.cluster_kernel_sd = abc_args[0]; //0.01;
     netpar.wiring_kernel_sd  = abc_args[1]; //0.094;
     netpar.seed = abc_args[0];
@@ -111,7 +114,7 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
 
     vector<Node*> inner_nodes;
     for (Node* n: net->get_nodes()) {
-        //cout << serial << " " << n->get_id() << " " << level_of[n] << endl;
+        cout << serial << " " << n->get_id() << " " << level_of[n] << endl;
         if (level_of[n] < 2) inner_nodes.push_back(n);
     }
 
@@ -123,7 +126,7 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
     net->validate();
     //vector<double> metrics = {(double) p_zero->deg(), (double) net->size(), trans, inner_trans};
     vector<double> metrics = {(double) p_zero->deg(), (double) net->size()};
-    //net->write_edgelist(ABC::toString(serial) + ".csv", Network::NodeIDs);
+    net->write_edgelist(ABC::toString(serial) + "_gauss.csv", Network::NodeIDs);
     cerr << net->size() << " " << inner_nodes.size() << " " << trans << " " << inner_trans << endl;
 
     return metrics;
