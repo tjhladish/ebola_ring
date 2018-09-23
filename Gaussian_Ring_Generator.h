@@ -134,7 +134,7 @@ Network* generate_ebola_network(const NetParameters &par, map<Node*, int> &level
 
     // this yields an expected degree for each node
     for (unsigned int level_idx = 0; level_idx < levels.size(); ++level_idx) { // for each level, inner to outer
-        cerr << "level idx, size: " << level_idx << ", " << levels[level_idx].size() << endl;
+//        cerr << "level idx, size: " << level_idx << ", " << levels[level_idx].size() << endl;
         for (const auto& inner_level_node: levels[level_idx]) {                 // look at each node in level
             const int self_id = inner_level_node->get_id();
             // calculate weights for whether that node should be connected to others
@@ -179,10 +179,10 @@ Network* generate_ebola_network(const NetParameters &par, map<Node*, int> &level
 
 //    cerr << "p-zero degree: " << p_zero->deg() << endl;
 
-	for (unsigned int i = 1; i < nodes.size(); ++i) { // always leave p_zero
-	    if (nodes[i]->deg() == 0) ebola_ring->delete_node(nodes[i]);
+    for (unsigned int i = 1; i < nodes.size(); ++i) { // always leave p_zero
+        if (nodes[i]->deg() == 0) ebola_ring->delete_node(nodes[i]);
     }
-    
+
     ebola_ring->reset_node_ids();
 //    cerr << "Total size: " << ebola_ring->size() << endl;
 //    cerr << "Level 1 size: " << levels[1].size() << endl;

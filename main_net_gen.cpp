@@ -84,50 +84,70 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
     NetParameters netpar = {};
     SimParameters simpar = {};
     initialize_parameters(args, netpar, simpar);
-    netpar.seed = rng_seed;
-    simpar.seed = rng_seed;
+    const int REPS = 100;
+    vector<vector<double>> level_sizes(2, vector<double>(REPS,0.0));
 
-    map<Node*, int> level_of;
-    Network* net = generate_ebola_network(netpar, level_of); // omit seed argument for seed based on current time
-    Node* p_zero = net->get_nodes()[0];          // not elegant, but works for now
+    for (unsigned int rep = 0; rep < REPS; ++rep) {
+        netpar.seed = rng_seed + rep;
+        simpar.seed = rng_seed;
 
-    simpar.network    = net;
-    simpar.index_case = p_zero;
+        map<Node*, int> level_of;
+        Network* net = generate_ebola_network(netpar, level_of); // omit seed argument for seed based on current time
+        Node* p_zero = net->get_nodes()[0];          // not elegant, but works for now
 
-//    net->write_edgelist("net_w_clustering.csv", Network::NodeIDs);
-//    remove_clustering(net, rng);
-//    net->validate();
-//    net->write_edgelist("net_wo_clustering.csv", Network::NodeIDs);
-    //net->dumper();
+        simpar.network    = net;
+        simpar.index_case = p_zero;
 
-//    cerr << "Total size after pruning: " << net->size() << endl;
-//    cerr << "Transitivity clustering coefficient after pruning: " << net->transitivity() << endl;
+    //    net->write_edgelist("net_w_clustering.csv", Network::NodeIDs);
+    //    remove_clustering(net, rng);
+    //    net->validate();
+    //    net->write_edgelist("net_wo_clustering.csv", Network::NodeIDs);
+        //net->dumper();
 
-/*    for(int i=0; i<1; i++ ) {
-        Event_Driven_Ebola_Sim sim(simpar);
-        sim.expose(p_zero);
-        sim.run_simulation();
-        //cout << sim.current_epidemic_size() << endl;
-    }*/
-    //vector<double> metrics = {(double) p_zero->deg(), (double) net->size()};
-    // not fitting to transitivity, but want to know it for a bit of analysis
+    //    cerr << "Total size after pruning: " << net->size() << endl;
+    //    cerr << "Transitivity clustering coefficient after pruning: " << net->transitivity() << endl;
 
-    vector<Node*> inner_nodes;
-    for (Node* n: net->get_nodes()) {
-        cout << serial << " " << n->get_id() << " " << level_of[n] << endl;
-        if (level_of[n] < 2) inner_nodes.push_back(n);
+    /*    for(int i=0; i<1; i++ ) {
+            Event_Driven_Ebola_Sim sim(simpar);
+            sim.expose(p_zero);
+            sim.run_simulation();
+            //cout << sim.current_epidemic_size() << endl;
+        }*/
+        //vector<double> metrics = {(double) p_zero->deg(), (double) net->size()};
+        // not fitting to transitivity, but want to know it for a bit of analysis
+
+        vector<Node*> inner_nodes;
+        for (Node* n: net->get_nodes()) {
+            const int lev = level_of[n];
+            //cout << serial << " " << n->get_id() << " " << lev << endl;
+            switch (lev) {
+                case 1:
+                    ++level_sizes[0][rep];
+                    break;
+                case 2:
+                    ++level_sizes[1][rep];
+                    break;
+                default:
+                    break;
+            }
+            if (lev < 2) inner_nodes.push_back(n);
+        }
+
+        //double trans = net->transitivity();
+        //trans = isfinite(trans) ? trans : -99999.9;
+
+        //double inner_trans = net->transitivity(inner_nodes);
+        //inner_trans = isfinite(inner_trans) ? inner_trans : -99999.9;
+        //net->validate();
+        //net->write_edgelist(ABC::toString(serial) + "_gauss.csv", Network::NodeIDs);
+        //cerr << net->size() << " " << inner_nodes.size() << " " << trans << " " << inner_trans << endl;
+        //vector<double> metrics = {(double) p_zero->deg(), (double) net->size(), trans, inner_trans};
     }
-
-    double trans = net->transitivity();
-    trans = isfinite(trans) ? trans : -99999.9;
-
-    double inner_trans = net->transitivity(inner_nodes);
-    inner_trans = isfinite(inner_trans) ? inner_trans : -99999.9;
-    net->validate();
-    //vector<double> metrics = {(double) p_zero->deg(), (double) net->size(), trans, inner_trans};
-    vector<double> metrics = {(double) p_zero->deg(), (double) net->size()};
-    net->write_edgelist(ABC::toString(serial) + "_gauss.csv", Network::NodeIDs);
-    cerr << net->size() << " " << inner_nodes.size() << " " << trans << " " << inner_trans << endl;
+    //vector<double> metrics = {(double) p_zero->deg(), (double) net->size()};
+    vector<double> metrics = {mean(  level_sizes[0] ),
+                              stdev( level_sizes[0] ),
+                              mean(  level_sizes[1] ),
+                              stdev( level_sizes[1] )};
 
     return metrics;
 }

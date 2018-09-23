@@ -66,7 +66,6 @@ vector<pair<double, double>> generate_spatial_distribution(int N, int clusters, 
 }
 
 
-//vector<double> calc_weights(const vector<pair<double, double>> &coords, int reference_node, double wiring_kernel_sd) {
 vector<double> calc_weights(const int reference_node_idx, const vector<Node*> &nodes, const vector<pair<double, double>> &coords, double wiring_kernel_sd, set<Node*> zero_weight_nodes) {
     assert(reference_node_idx < (signed) coords.size());
     assert(nodes.size() == coords.size());

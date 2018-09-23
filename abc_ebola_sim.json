@@ -1,12 +1,12 @@
 {
     "smc_iterations" : 1,
-    "num_samples"    : 400000,
+    "num_samples"    : 80000,
     "predictive_prior_fraction" : 0.01,
     "pls_training_fraction"     : 0.5,
     "noise"                     : "MULTIVARIATE",
 
     "database_filename"             : "ebola_sim.sqlite",
-    "posterior_database_filename"   : "ebola_ring_posterior.sqlite",
+    "posterior_database_filename"   : "ebola_rings_posterior-w_transitivities.sqlite",
     "retain_posterior_rank"         : "true",
 
 
@@ -27,7 +27,7 @@
          "dist_type"  : "PSEUDO",
          "num_type"   : "FLOAT",
          "par1"       : 0,
-         "par2"       : 999},
+         "par2"       : 99},
 
         {"name"       : "clust",
          "dist_type"  : "PSEUDO",
@@ -45,7 +45,8 @@
          "dist_type"  : "PSEUDO",
          "num_type"   : "FLOAT",
          "par1"       : 0.75,
-         "par2"       : 0.75}
+         "par2"       : 0.9,
+         "step"       : 0.15}
     ],                
 
     "metrics" : [     
