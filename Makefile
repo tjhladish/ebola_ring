@@ -44,14 +44,22 @@ $(ABC_PATH)/libabc.a: $(ABC_PATH)
 libabc: $(ABC_PATH)/libabc.a
 
 ## Simulation proper
+## convention for targets:
+## resulting_binary: source_with_main.cpp assorted other dependencies
+##   commands
 
 OPTS = -Wno-ignored-attributes -Wno-misleading-indentation -Wno-int-in-bool-context
 
 ebola_net: main_net_gen.cpp Ring_Generator.h epifire libabc
-	g++ $(FLAGS) $(OPTS) main_net_gen.cpp -o $@ $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS)
+	g++ $(FLAGS) $(OPTS) $< -o $@ $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS)
 
-degvtime: epifire degree_vs_time.cpp
-	g++ $(FLAGS) degree_vs_time.cpp -o $@ $(INCLUDE) $(LDFLAGS)
+degvtime: degree_vs_time.cpp epifire
+	g++ $(FLAGS) $< -o $@ $(INCLUDE) $(LDFLAGS)
 
 etsim: main_transmission_sim.cpp Ring_Generator.h Event_Driven_Ebola_Sim.h epifire libabc
-	g++ $(FLAGS) $(OPTS) main_transmission_sim.cpp -o $@ $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS)
+	g++ $(FLAGS) $(OPTS) $< -o $@ $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS)
+
+SIMS = ebola_net degvtime etsim
+
+clean:
+	rm $(SIMS)
