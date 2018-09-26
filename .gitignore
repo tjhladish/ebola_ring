@@ -2,3 +2,7 @@ local.mk
 ebola_net
 degvtime
 ebola_sim
+.Rproj.user
+layout_networks/layout_network
+layout_networks/*.png
+layout_networks/*.Rproj
