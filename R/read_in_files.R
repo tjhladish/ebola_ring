@@ -5,6 +5,7 @@ library(magrittr)
 # set location
 if(Sys.info()[["user"]] == "Rosalind") {
   output.location <- "~/Sync/LSHTM/Collaboration/Ring Simulator/Outputs/"
+  output.location <- "~/Sync/LSHTM/Collaboration/Ring Simulator/Outputs/v2/" # we need a system for each iteration of outputs
 } else {
   # add your own location
   output.location <- "~/TomOrCarlsFolders"
@@ -24,7 +25,7 @@ event.time.labels <- read.table(paste0(output.location, "event_time.columns"))[1
 # event_time.log == big file
 # paired with event_time.columns
 # serials are used for matching
-events <- fread(paste0(output.location, "event_time.log")) %>% data.table
+events <- fread(paste0(output.location, "event_times-75-90.out")) %>% data.table
 colnames(events) <- event.time.labels
 
 # network files
@@ -32,3 +33,9 @@ colnames(events) <- event.time.labels
 # the _1 means there is no clustering, but they are paired
 # 0 goes with 1000
 # it goes up by 1000 because there are 1000 sims per network
+
+# get list of network files 
+network.files <- list.files(paste0(output.location, "networks/")) #%>% gsub(".csv", "", .)
+
+# read in an example net
+this.net <- read.csv(paste0(output.location, "networks/", network.files[1]))
