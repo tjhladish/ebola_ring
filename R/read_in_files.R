@@ -25,7 +25,7 @@ event.time.labels <- read.table(paste0(output.location, "event_time.columns"))[1
 # event_time.log == big file
 # paired with event_time.columns
 # serials are used for matching
-events <- fread(paste0(output.location, "event_times-75-90.out")) %>% data.table
+events <- fread(paste0(output.location, "event_time.log")) %>% data.table # NB change in filename
 colnames(events) <- event.time.labels
 
 # network files
