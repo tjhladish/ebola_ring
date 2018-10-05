@@ -1,14 +1,14 @@
 require(data.table)
 require(ggplot2)
 
-args <- c("~/Downloads/sample_networks","adsfasdfasdf4x4.png")
+args <- c("~/Downloads/sample_networks","adsfasdfasdf5x4.png")
 args <- commandArgs(trailingOnly = TRUE)
 
 set.seed(0L)
 
 pth <- args[1]
 tar <- args[2]
-sides <- as.integer(gsub("^.+(\\d+)\\..+$", "\\1", tar))
+sides <- as.integer(unlist(strsplit(gsub("^.+[^\\d]+(\\d+)x(\\d+)\\..+$", "\\1 \\2", tar)," ")))
 
 layouts = list.files(paste0(pth,"/layouts"), pattern = "\\.layout$", full.names = T)
 networks = list.files(paste0(pth,"/posterior_networks"), pattern = "\\.csv$", full.names = T)
@@ -63,7 +63,7 @@ ggsave(tar,
   ) +
     facet_wrap(~id, scales = "free") +
     geom_net(
-      layout.alg="fruchtermanreingold",
+      # layout.alg="fruchtermanreingold",
       directed = FALSE, labelon = FALSE, size = 1,
       ecolour = "lightgray", ealpha = 0.5,
       linewidth = 0.2, fiteach = TRUE
