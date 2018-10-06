@@ -9,7 +9,9 @@ ABC_PATH = $(WORKSPACE)/AbcSmc
 GSL_PATH ?= $(ABC_PATH)/gsl_local
 SQL_PATH ?= $(ABC_PATH)/sqdb
 
-EPI_PATH = $(WORKSPACE)/EpiFire/src
+EPIFIRE = EpiFire
+
+EPI_PATH = $(WORKSPACE)/$(EPIFIRE)/src
 ABC_LIB = -L$(ABC_PATH) -labc -ljsoncpp -lsqdb $(ABC_PATH)/sqlite3.o
 GSL_LIB = -lm -L$(GSL_PATH)/lib/ -lgsl -lgslcblas -pthread -Wl -ldl
 
@@ -21,10 +23,10 @@ default: ebola_sim
 
 ## EpiFire dependency
 
-EPIFIREREPO = https://github.com/tjhladish/EpiFire.git
+EPIFIREREPO = https://github.com/tjhladish/$(EPIFIRE).git
 
 $(EPI_PATH):
-	cd $(WORKSPACE) && git clone $(EPIFIREREPO)
+	cd $(WORKSPACE) && if [ ! -d "$(EPIFIRE)" ]; then git clone $(EPIFIREREPO); fi
 
 $(EPI_PATH)/libsim.a: $(EPI_PATH)
 	$(MAKE) -C $^
@@ -33,10 +35,12 @@ epifire: $(EPI_PATH)/libsim.a
 
 ## AbcSmc dependency
 
-ABCSMCREPO = https://github.com/tjhladish/AbcSmc.git
+ABCSMC = AbcSmc
+
+ABCSMCREPO = https://github.com/tjhladish/$(ABCSMC).git
 
 $(ABC_PATH):
-	cd $(WORKSPACE) && git clone $(ABCSMCREPO)
+	cd $(WORKSPACE) && if [ ! -d "$(ABCSMC)" ]; then git clone $(ABCSMCREPO); fi
 
 $(ABC_PATH)/libabc.a: $(ABC_PATH)
 	$(MAKE) -C $^
