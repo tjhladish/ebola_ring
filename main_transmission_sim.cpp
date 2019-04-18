@@ -49,24 +49,28 @@ void initialize_parameters(vector<double> &abc_args, NetParameters &netpar, SimP
     // It seems plausible that one or the other of these might not work, given alternate sys architecture
 
     // Network construction parameters
-    netpar.desired_levels = 3; // index case is a level
-    netpar.N = 1e4;
-    netpar.clusters = 2000;
+    netpar.desired_levels = 5; // index case is a level
+    netpar.N = 1e5;
+    netpar.clusters = 20000;
     netpar.mean_deg = 16.0;
     netpar.cluster_kernel_sd = abc_args[0]; //0.01;
     netpar.wiring_kernel_sd  = abc_args[1]; //0.094;
 
     // Transmission model parameters
-	bool use_vac = (bool) abc_args[4];
-    double vac_eff1 = abc_args[5];
+    bool use_vac = (bool) abc_args[5];
+    double vac_eff1 = abc_args[6];
+    double vac_cov1 = abc_args[7];
+    simpar.contact_detection  = abc_args[8]; // contact tracing detection probability
+
     Vaccine vac;
     vac.efficacy = {vac_eff1, 0.0};   // single dose vaccine
     //vac.efficacy = {0.8, 0.9}; // two dose vaccine
     if (use_vac) {
-        vac.coverage = {0.5, 1.0};
+        vac.coverage = {vac_cov1, 1.0};
     } else {
         vac.coverage = {0.0, 0.0};
     }
+    //vac.efficacyRampUp = {0, 7}; // increase linearly from 0% on day 0 to max eff values on day 7
     vac.timeToProtection = 7;
     vac.isLeaky  = true;
 
@@ -85,26 +89,24 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
     NetParameters netpar = {};
     SimParameters simpar = {};
     initialize_parameters(args, netpar, simpar);
-    netpar.seed = (unsigned int) (netpar.cluster_kernel_sd * netpar.wiring_kernel_sd * pow(10,10)); // prob would be fine to just use 0 as seed
-//cerr << "seed: " << netpar.seed << endl;
-    simpar.seed = rng_seed;
-	const int replicate = (int) args[2];
-    const bool use_clustering = (bool) args[3];
 
-    //    {"name"       : "cluster_sd", "dist_type"  : "POSTERIOR", "num_type"   : "FLOAT", "par1"       : 0, "par2"       : 99},
-    //    {"name"       : "wiring_sd", "dist_type"  : "POSTERIOR", "num_type"   : "FLOAT", "par1"       : 0, "par2"       : 99},
-    //    {"name"       : "rep", "dist_type"  : "PSEUDO", "num_type"   : "FLOAT", "par1"       : 0, "par2"       : 999},
-    //    {"name"       : "clust", "dist_type"  : "PSEUDO", "num_type"   : "INT", "par1"       : 0, "par2"       : 1},
-    //    {"name"       : "vac", "dist_type"  : "PSEUDO", "num_type"   : "FLOAT", "par1"       : 0, "par2"       : 1}
+    const int net_replicate = (int) args[2];
+    const int epi_replicate = (int) args[3]; // intervention replicate
+    const bool use_clustering = (bool) args[4];
+
+    netpar.seed = net_replicate;
+    simpar.seed = epi_replicate;
 
     map<Node*, int> level_of;
     Network* net = generate_ebola_network(netpar, level_of);
+    //Network* net = read_edgelist(filename);
+    //level_of = net.calculate_distances(p_zero, vector< vector<double>> distances); // or whatever I called it
     Node* p_zero = net->get_nodes()[0];          // not elegant, but works for now
     if (not use_clustering) remove_clustering(net, rng);
 //    cerr << "Total size after pruning: " << net->size() << endl;
 //    cerr << "Transitivity clustering coefficient after pruning: " << net->transitivity() << endl;
 
-    if (replicate == 0) {
+    if (epi_replicate == 0) {
         stringstream ss;
         ss << "./output/" << serial << "_" << use_clustering << ".csv";
         string filename = ss.str();
@@ -123,7 +125,7 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
     vector< vector<double> > log_data = sim.run_simulation();
     //for (auto row: log_data) {
     for (unsigned int node_id = 0; node_id < log_data.size(); ++ node_id) {
-        cout << serial << " " << replicate << " " << node_id << " " << level_of[net->get_nodes()[node_id]] << " ";
+        cout << serial << " " << node_id << " " << level_of[net->get_nodes()[node_id]] << " ";
         for (auto val: log_data[node_id]) cout << val << " ";
         cout << endl;
     }

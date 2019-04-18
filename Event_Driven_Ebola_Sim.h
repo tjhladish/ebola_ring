@@ -89,7 +89,8 @@ struct SimParameters {
     unsigned int seed;
     double prob_quarantine;
     double prob_community_death;
-    };
+    //double contact_detection;
+};
 
 class Event_Driven_Ebola_Sim {
   public:
@@ -123,6 +124,7 @@ class Event_Driven_Ebola_Sim {
     double Now;                 // Current "time" in simulation
 
     vector< vector<double> > log_data;
+    map<Node*, double> coverage_deviates;
 
     bool isPatientZero(Node* node) { return node->get_id() == 0; }
 
@@ -243,8 +245,11 @@ class Event_Driven_Ebola_Sim {
         // schedule initial vaccinations for everyone in network who is eligible
         // first and second doses are scheduled if efficacy is > 0 (dose 2 is conditional on dose 1)
         if (vaccine.efficacy[0] > 0.0) {
+            for (Node* node: network->get_nodes()) coverage_deviates[node] = runif(rng);
+
             const double Tv1 = Now + time_to_event(V1_EVENT);
             add_event(Tv1, V1_EVENT);
+
             if (vaccine.efficacy[1] > 0.0) {
                 const double Tv2 = Tv1 + time_to_event(V2_EVENT);
                 add_event(Tv2, V2_EVENT);
@@ -270,7 +275,7 @@ class Event_Driven_Ebola_Sim {
 
             for (Node* node: network->get_nodes()) {
                 const StateType state = (StateType) node->get_state();
-                if (state == eligible_group and runif(rng) < vaccine.coverage[dose_idx]) {
+                if (state == eligible_group and coverage_deviates[node] < vaccine.coverage[dose_idx]) {
                     vaccine_doses_used[dose_idx]++;
                     log_data[node->get_id()][converts_to] = Now;
                     update_state(node, eligible_group, converts_to);

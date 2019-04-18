@@ -1,12 +1,12 @@
 {
     "smc_iterations" : 1,
-    "num_samples"    : 80000,
+    "num_samples"    : 500000,
     "predictive_prior_fraction" : 0.01,
     "pls_training_fraction"     : 0.5,
     "noise"                     : "MULTIVARIATE",
 
-    "database_filename"             : "ebola_sim.sqlite",
-    "posterior_database_filename"   : "ebola_rings_posterior-w_transitivities.sqlite",
+    "database_filename"             : "ebola_sim-cabp.sqlite",
+    "posterior_database_filename"   : "ebola_ring_posterior.sqlite",
     "retain_posterior_rank"         : "true",
 
 
@@ -23,16 +23,22 @@
          "par1"       : 0,
          "par2"       : 99},
 
-        {"name"       : "rep",
+        {"name"       : "net_rep",
          "dist_type"  : "PSEUDO",
          "num_type"   : "FLOAT",
          "par1"       : 0,
-         "par2"       : 99},
+         "par2"       : 9},
+
+        {"name"       : "epi_rep",
+         "dist_type"  : "PSEUDO",
+         "num_type"   : "FLOAT",
+         "par1"       : 0,
+         "par2"       : 9},
 
         {"name"       : "clust",
          "dist_type"  : "PSEUDO",
          "num_type"   : "INT",
-         "par1"       : 0,
+         "par1"       : 1,
          "par2"       : 1},
 
         {"name"       : "vac",
@@ -41,12 +47,26 @@
          "par1"       : 0,
          "par2"       : 1},
 
-         {"name"       : "vac_eff1",
+        {"name"       : "vac_eff1",
          "dist_type"  : "PSEUDO",
          "num_type"   : "FLOAT",
-         "par1"       : 0.75,
+         "par1"       : 0.7,
+         "par2"       : 1.0,
+         "step"       : 0.1},
+
+        {"name"       : "vac_cov",
+         "dist_type"  : "PSEUDO",
+         "num_type"   : "FLOAT",
+         "par1"       : 0.5,
          "par2"       : 0.9,
-         "step"       : 0.15}
+         "step"       : 0.1},
+
+        {"name"       : "con_det",
+         "dist_type"  : "PSEUDO",
+         "num_type"   : "FLOAT",
+         "par1"       : 0.5,
+         "par2"       : 1.0,
+         "step"       : 0.25}
     ],                
 
     "metrics" : [     
