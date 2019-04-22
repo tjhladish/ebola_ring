@@ -22,16 +22,6 @@ using namespace std;
 uniform_real_distribution<double> runif(0.0, 1.0);
 mt19937 rng;                      // random number generator
 
-// enum StateType { SUSCEPTIBLE,          // expected to be first for data log
-//                  VAC_BACKGROUND,
-//                  VAC_REACT,
-//                  EXPOSED,
-//                  INFECTIOUS,
-//                  HOSPITALIZED,
-//                  RECOVERED,
-//                  DEAD,
-//                  NUM_OF_STATE_TYPES }; // must be last
-
 enum EventType { StoE_EVENT,
                  EtoI_EVENT,
                  ItoR_EVENT,

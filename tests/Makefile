@@ -29,3 +29,9 @@ test_id_comm.o: test_id_comm.cpp epifire
 
 test_id_comm.dot: test_id_comm.o test_net.csv
 	./$^ $@
+
+test_priorityq_comp.o: test_priorityq_comp.cpp
+	g++ $(FLAGS) $< -o $@
+
+test_eventdriven.o: test_eventdriven.cpp
+	g++ $(FLAGS) $< -o $@

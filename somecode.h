@@ -1,6 +1,36 @@
 
+enum EventType {
+  StoE_EVENT,
+  EtoI_EVENT,
+  ItoR_EVENT,
+  ItoH_EVENT,
+  ItoH_PZERO_EVENT,
+  ItoD_EVENT,
+  V_EVENT,
+  TRACING_EVENT,
+  NUM_OF_EVENT_TYPES
+}; // must be last
 
-class Event_Driven_Ebola_Sim {
+class Event {
+public:
+  double time;
+  EventType type;
+  Node* node;
+  Node* source; // for exposure events
+  
+  Event(double t, EventType e, Node* n, Node* s = nullptr) : time(t), type(e), node(n), source(s) {}
+  Event(const Event& o) : time(o.time), type(o.type), node(o.node), source(o.source) {}
+  Event& operator=(const Event& o) { time=o.time; type=o.type; node=o.node; source=o.source; return *this; }
+  
+  bool operator<(const Event& right) const {
+    return (time < right.time);
+  }
+  bool operator>(const Event& right) const {
+    return (time > right.time);
+  }
+};
+
+class Event_Driven_Ebola_Sim : public NetworkSimplate<Event> {
   public:
                                 // constructor
     Event_Driven_Ebola_Sim (SimParameters& par) :
@@ -18,19 +48,20 @@ class Event_Driven_Ebola_Sim {
     int day;
     vector< vector<double> > log_data;
     IDCommunity community;
-    priority_queue<Event, vector<Event>, compTime > EventQ;
 
-    void reset() {
-        day = 0;
-        EventQ = priority_queue<Event, vector<Event>, compTime >();
-        for (auto el: log_data) { el.assign(NUM_OF_STATE_TYPES, -1); }
-        community.reset();
+    virtual void reset() {
+      // derived class reset
+      day = 0;
+      for (auto el: log_data) { el.assign(NUM_OF_STATE_TYPES, -1); }
+      community.reset();
+      // base reset
+      NetworkSimplate<Event>::reset();
     }
 
     // TODO implement vaccination model(s)
     // rough idea: vaccine object(s) that hold universal information about vaccine
     // and nodes hold state information about their particular vaccine events (e.g., when, what kind(s), assignment for non-leaky vax)
-    bool protected(Node* node) {
+    bool vaccine_protected(Node* node) {
       return false;
     }
 
@@ -65,6 +96,19 @@ class Event_Driven_Ebola_Sim {
     }
 
     void onset(Node* node) {
+      double hospTime = 0;
+      double recoverTime = 0;
+      double deathTime = 0;
+      if(ascertain_list[node->get_id()]) {
+        // draw different hosp time
+      } else {
+        // draw other hosp time
+      }
+      // draw death time
+      // draw recover time
+      double tLimit = min(hospTime, recoverTime, deathTime);
+      // draw contact times for each neighbor
+      // add exposures for each less than tLimit
       // is the node ascertained yet
       // if yes - distribute recovery or hospital death (even if death would happen sooner than hospitalization) + hospitalization (if it occurs sooner than death / recovery)
       // if not, will the node be ascertained without any intervention?
@@ -83,7 +127,11 @@ class Event_Driven_Ebola_Sim {
 
     // potential to trigger vaccination
     void hospitalize(Node* node) {
-      // if already ascertained
+      if (ascertain_list[node->get_id()]) { // if already ascertained
+        // trigger additional tracing?
+      } else {
+        // trigger initial tracing? addtional tracing?
+      }
       community.update_state(node, HOSPITALIZED);
     }
 
@@ -102,6 +150,50 @@ class Event_Driven_Ebola_Sim {
         for (auto e : evts) add_event(e);
         while (verbose(next_event(timelimit)) < timelimit) continue;
         return log_data;
+    }
+
+    void logupdate(Event event, DiseaseState to) {
+      log_data[event.n->get_id()][to] = event.time;
+    }
+
+    void process(Event event) {    
+      switch(event.type) {
+        case EtoI_EVENT:
+          if(onset(event.node)) logupdate(et, INFECTIOUS);
+          break;
+        case ItoR_EVENT:
+          if(recover(event.node)) logupdate(et, RECOVERED);
+          break;
+        case ItoH_EVENT:
+          if(hospitalize(event.node)) logupdate(et, HOSPITALIZED);
+          break;
+        case HtoD_EVENT:
+          if(hospitaldeath(event.node)) logupdate(et, DEAD);
+          break;
+        case ItoD_EVENT:
+          if(communitydeath(event.node)) logupdate(et, DEAD);
+          break;
+        case StoE_EVENT:
+          if(expose(event.node, event.source, event.time)) {
+            logupdate(et, EXPOSED);
+            // TODO infector log
+          }
+          break;
+        case V1_EVENT:
+          if(vaccine_campaign(event.type)) {
+            
+          }
+          break;
+        case TRACING_EVENT:
+          if(ascertain(event.node, event.source)) {
+            // TODO ascertainment level log?
+          }
+          break;
+        default:
+            cerr << "ERROR: Unsupported event type: " << event.type << endl;
+            exit(-2);
+            break;          // superfluous after exit(), but included in case refactoring makes it necessary
+      }
     }
 
 
@@ -135,8 +227,6 @@ class Event_Driven_Ebola_Sim {
         }
     }
 
-    // template these?
-    void add_event( Event et ) { EventQ.push(et); }
     void add_event( double time, EventType et, Node* node = nullptr, Node* source = nullptr) {
         add_event(Event(time, et, node, source));
     }
