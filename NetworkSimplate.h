@@ -36,24 +36,19 @@ using namespace std;
 template<class ET>
 class EventDrivenSim {
   public:
-                                // constructor
-    EventDrivenSim() {
-        reset();
-    }
 
-    priority_queue<ET, vector<ET>, greater<ET> > EventQ;
+    EventDrivenSim() { reset(); }
 
-    void reset() { EventQ = priority_queue<ET, vector<ET>, greater<ET> >(); }
-
-    void run_simulation(
-      vector<ET> initial_events, // initial list of events - e.g., background vaccination, incipient infection
+    double run(
+      // initial list of events - e.g., background vaccination, incipient infection
+      const vector<ET> initial_events = vector<ET>(),
       const double timelimit = numeric_limits<double>::max()
     ) {
         for (auto e : initial_events) add_event(e);
-        while (verbose(next_event(timelimit)) < timelimit) continue;
+        double time = verbose(next_event(timelimit));
+        while (time < timelimit) time = verbose(next_event(timelimit));
+        return time;
     }
-
-    virtual void process(ET event) {}
 
     double next_event(const double maxtime) {
         if ( EventQ.empty() ) {
@@ -68,8 +63,13 @@ class EventDrivenSim {
 
     // template these?
     void add_event( ET et ) { EventQ.push(et); }
+    
     // hook to do something as time passes
-    virtual double verbose(double Now) { return(Now); }
+    virtual double verbose(const double Now) { return(Now); }
+    virtual void process(ET event) {}
+    
+    priority_queue<ET, vector<ET>, greater<ET> > EventQ;
+    virtual void reset() { EventQ = priority_queue<ET, vector<ET>, greater<ET> >(); }
 
 };
 #endif
