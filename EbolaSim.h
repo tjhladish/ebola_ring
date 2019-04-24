@@ -22,37 +22,15 @@ using namespace std;
 uniform_real_distribution<double> runif(0.0, 1.0);
 mt19937 rng;                      // random number generator
 
-enum EventType { StoE_EVENT,
-                 EtoI_EVENT,
-                 ItoR_EVENT,
-                 ItoH_EVENT,
-                 ItoH_PZERO_EVENT,
-                 ItoD_EVENT,
-                 V_EVENT,
-                 // V2_EVENT,
-                 NUM_OF_EVENT_TYPES }; // must be last
-
-
-class Event {
-  public:
-    double time;
-    EventType type;
-    Node* node;
-    Node* source; // for exposure events
-    Event(const Event& o) {  time=o.time; type=o.type; node=o.node; source=o.source; }
-    Event(double t, EventType e, Node* n, Node* s = nullptr) { time=t; type=e; node=n; source=s; }
-    Event& operator=(const Event& o) { time=o.time; type=o.type; node=o.node; source=o.source; return *this; }
-};
-
-class compTime {
-  public:
-    bool operator() (const Event* lhs, const Event* rhs) const {
-        return (lhs->time>rhs->time);
-    }
-
-    bool operator() (const Event& lhs, const Event& rhs) const {
-        return (lhs.time>rhs.time);
-    }
+enum EventType {
+  StoE_EVENT,
+  EtoI_EVENT,
+  ItoR_EVENT,
+  ItoH_EVENT,
+  ItoD_EVENT,
+  V_EVENT,
+  TRACE_EVENT,
+  NUM_OF_EVENT_TYPES // must be last
 };
 
 // want vaccine object to answer question:
@@ -75,14 +53,17 @@ struct SimParameters {
     unsigned int seed;
     double prob_quarantine;
     double prob_community_death;
-    };
+    int control_radius = 2;
+};
 
-class Event_Driven_Ebola_Sim {
+class Event_Driven_Ebola_Sim : public EventDrivenSim<Event<EventType>> {
   public:
-                                // constructor
-
-
-
+    
+    
+    int day;
+    vector< vector<double> > log_data;
+    IDCommunity community;
+    int control_radius;
 
     bool expose(Node* node, const int source_id) {
         //cerr << "node: " << node->get_id() << endl;
@@ -91,6 +72,42 @@ class Event_Driven_Ebola_Sim {
           cerr << "ERROR: Exposure of node in unsupported state.  Node state is " << state << endl;
           exit(-1);
         }
+
+    enum TraceStatus {
+      FOUND, MISSED, NUM_TRACE_STATUS;
+    }
+
+    vector<vector<TraceStatus>> edgetrace;
+    vector<int> nodetrace;
+
+    bool trace(Node* node, Node* src, double time) {
+        if (nodetrace[node->get_id()] != -1) {
+          int lvl = ;
+          // attempt to trace neighbors for new finds
+          // if untraced, create trace events
+          // if already traced, check level difference
+          // TODO refactor to use edges from EpiFire
+          for (auto tar : node->get_neighbors()) 
+            edgetrace[node->get_id()][tar->get_id()] = pTrace > runif(1) ? FOUND : MISSED;
+          // of the found edges, what is the min lvl?
+          
+          int ref = 2; // TODO use algo stuff to filter edgetrace[node->get_id()] by FOUND, then get min
+          int lvl = min(nodetrace[src->get_id()]+1, ref);
+          
+          
+          
+          
+        } else {
+          
+        }
+      // check node as ascertained - if already ascertained at equal or lower level that source level + 1,
+      // don't need to re-notify other neighbors.  *Might* to need to notify source. I.e., if L2 node connects to an L0 node
+      // otherwise, proceed
+      // if currently infectious, new hospitalized event
+      // test neighbors (or reuse previous identifications)
+      // register contact tracing events for found neighbors (ignoring source neighbor)
+    }
+
 
         // TODO actually implement this
         bool unprotected_by_vaccine = not vaccine.protected(node->get_vaccination());
@@ -247,9 +264,5 @@ class Event_Driven_Ebola_Sim {
         }
     }
 
-    void add_event( double time, EventType et, Node* node = nullptr, Node* source = nullptr) {
-        EventQ.push( Event(time,et,node,source) );
-        return;
-    }
 };
 #endif

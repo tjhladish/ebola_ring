@@ -33,6 +33,26 @@ using namespace std;
 // 
 // };
 
+template<class ET, class NT = Node>
+class Event
+{
+  public:
+    double time;
+    ET type;
+    NT* node, source;
+
+    Event(const Event& o) : time(o.time), type(o.type), node(o.node), source(o.source) {}
+    Event(double t, ET e, NT* n, NT* s = nullptr) : time(t), type(e), node(n), source(s) {}
+    Event& operator=(const Event& o) {
+      time=o.time; type=o.type; node=o.node; source=o.source;
+      return *this;
+    }
+
+    bool operator<(const Event& right) const { return (time < right.time); }
+    bool operator>(const Event& right) const { return (time > right.time); }
+
+};
+
 template<class ET>
 class EventDrivenSim {
   public:
