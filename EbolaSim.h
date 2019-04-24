@@ -49,7 +49,7 @@ enum EventType {
 //
 //     Network* network;
 //     Node* index_case;
-map<EventType, function<double(mt19937&)> > event_generator;
+//     map<EventType, function<double(mt19937&)> > event_generator;
 //     Vaccine vaccine;
 //     unsigned int seed;
 //     double prob_quarantine;
