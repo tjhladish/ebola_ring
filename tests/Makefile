@@ -35,3 +35,14 @@ test_priorityq_comp.o: test_priorityq_comp.cpp
 
 test_eventdriven.o: test_eventdriven.cpp
 	g++ $(FLAGS) $< -o $@
+
+test_classmethodmap.o: test_classmethodmap.cpp
+	g++ $(FLAGS) $< -o $@
+
+test_es.o: test_es.cpp ../EbolaSim.h
+	g++ $(FLAGS) $< -o $@ $(INCLUDE) $(LINK) -lsim $(GSL_LIB)
+
+.PHONY: run_test_es
+
+run_test_es: test_es.o test_net.csv
+	./$^ $@

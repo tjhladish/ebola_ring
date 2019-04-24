@@ -17,11 +17,11 @@ public:
   EventType type;
   Node* node;
   Node* source; // for exposure events
-  
+
   Event(double t, EventType e, Node* n, Node* s = nullptr) : time(t), type(e), node(n), source(s) {}
   Event(const Event& o) : time(o.time), type(o.type), node(o.node), source(o.source) {}
   Event& operator=(const Event& o) { time=o.time; type=o.type; node=o.node; source=o.source; return *this; }
-  
+
   bool operator<(const Event& right) const {
     return (time < right.time);
   }
@@ -156,7 +156,7 @@ class Event_Driven_Ebola_Sim : public NetworkSimplate<Event> {
       log_data[event.n->get_id()][to] = event.time;
     }
 
-    void process(Event event) {    
+    void process(Event event) {
       switch(event.type) {
         case EtoI_EVENT:
           if(onset(event.node)) logupdate(et, INFECTIOUS);
@@ -181,7 +181,7 @@ class Event_Driven_Ebola_Sim : public NetworkSimplate<Event> {
           break;
         case V1_EVENT:
           if(vaccine_campaign(event.type)) {
-            
+
           }
           break;
         case TRACING_EVENT:

@@ -20,17 +20,17 @@ using namespace std;
 //     double time;
 //     ET type;
 //     NT* node, source;
-// 
+//
 //     Event(const Event& o) : time(o.time), type(o.type), node(o.node), source(o.source) {}
 //     Event(double t, ET e, NT* n, NT* s = nullptr) : time(t), type(e), node(n), source(s) {}
 //     Event& operator=(const Event& o) {
 //       time=o.time; type=o.type; node=o.node; source=o.source;
 //       return *this;
 //     }
-// 
+//
 //     bool operator<(const Event& right) const { return (time < right.time); }
 //     bool operator>(const Event& right) const { return (time > right.time); }
-// 
+//
 // };
 
 template<class ET, class NT = Node>
@@ -39,10 +39,13 @@ class Event
   public:
     double time;
     ET type;
-    NT* node, source;
+    NT* node;
+    NT* source;
 
-    Event(const Event& o) : time(o.time), type(o.type), node(o.node), source(o.source) {}
-    Event(double t, ET e, NT* n, NT* s = nullptr) : time(t), type(e), node(n), source(s) {}
+    Event(const Event& o) { time=o.time; type=o.type; node = o.node; source=o.source; }
+    Event(double t, ET e, NT* n, NT* s = nullptr) { time=t; type=e; node=n; source=s; }
+    ~Event() {}
+
     Event& operator=(const Event& o) {
       time=o.time; type=o.type; node=o.node; source=o.source;
       return *this;
@@ -83,11 +86,11 @@ class EventDrivenSim {
 
     // template these?
     void add_event( ET et ) { EventQ.push(et); }
-    
+
     // hook to do something as time passes
     virtual double verbose(const double Now) { return(Now); }
     virtual void process(ET event) {}
-    
+
     priority_queue<ET, vector<ET>, greater<ET> > EventQ;
     virtual void reset() { EventQ = priority_queue<ET, vector<ET>, greater<ET> >(); }
 
