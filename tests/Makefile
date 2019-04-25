@@ -39,6 +39,9 @@ test_eventdriven.o: test_eventdriven.cpp
 test_classmethodmap.o: test_classmethodmap.cpp
 	g++ $(FLAGS) $< -o $@
 
+test_rnghandling.o: test_rnghandling.cpp
+	g++ $(FLAGS) $< -o $@
+
 test_es.o: test_es.cpp ../EbolaSim.h
 	g++ $(FLAGS) $< -o $@ $(INCLUDE) $(LINK) -lsim $(GSL_LIB)
 

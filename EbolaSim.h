@@ -60,15 +60,43 @@ enum EventType {
 //template class Event<EventType>;
 using EboEvent = Event<EventType>;
 
+struct SimPars {
+  Network* net;
+  map<EventType, function<double(mt19937&)>> event_time_distribution;
+  int simseed;
+};
+
 class EbolaSim : public EventDrivenSim<EboEvent> {
   public:
 
-    EbolaSim(Network* network) :
-    community(IDCommunity(network)),
-    index_case(network->get_node(0)),
-    disease_log_data(network->size(), vector<double>(N_STATES, std::numeric_limits<double>::quiet_NaN())) {}
+    EbolaSim(SimPars& pars) :
+    // assorted simple constructions
+      community(IDCommunity(pars.net)),
+      index_case(pars.net->get_node(0)),
+      disease_log_data(
+        pars.net->size(),
+        vector<double>(N_STATES, numeric_limits<double>::quiet_NaN())
+      ),
+      rngseed(pars.simseed)
+    // construction with a bit more complexity
+    {
+        // concept: input parameters provides the distributions
+        // but internally, the simulation code only invokes the generators via ()
+        // with all generators locked to the same rng
+        for_each(
+          pars.event_time_distribution.begin(), pars.event_time_distribution.end(),
+          [&](pair<const EventType, function<double(mt19937&)>>& p) {
+            event_time_generator[p.first] = bind(p.second, std::ref(localrng));
+          }
+        );
+        derivedReset();
+    }
 
+    int rngseed;
     mt19937 localrng; // random number generator
+    map<EventType, function<double()>> event_time_generator;
+    double runif() { return uniform_real_distribution<double>(0,1)(localrng); }
+
     int day;
     IDCommunity community;
     Node* index_case;
@@ -76,59 +104,55 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
     int control_radius = 2;
 
     virtual void reset() {
+      localrng.seed(rngseed);
       disease_log_data.clear();
       disease_log_data.resize(community.size(), vector<double>(N_STATES, std::numeric_limits<double>::quiet_NaN()));
       community.reset();
-      EventDrivenSim<EboEvent>::reset();
+      EventDrivenSim<EboEvent>::reset(); // also reset eventQ
     }
 
     vector<EboEvent> defaultEvents() {
       return { EboEvent(0, EXPOSE, index_case) };
     }
 
-    map<EventType, function<double(mt19937&)> > event_generator = {
-      { EXPOSE,   [](mt19937& rng) { return 5.0; }},
-      { INCUBATE, [](mt19937& rng) { return 5.0; }},
-      { DIE, [](mt19937& rng) { return 10.0; }},
-      { RECOVER, [](mt19937& rng) { return 5.0; }},
-      { HOSPITAL, [](mt19937& rng) { return 2.0; }}
-    };
-
     bool canTransmit(Node* source) {
-      return !source ? true :
+      return !source ? true : // if source is null, means external introduction
+        // otherwise, can transmit if source is infectious & not hospitalized
         source->get_state() == INFECTIOUS && community.get_condition(source) != HOSPITALIZED;
     }
 
     bool exposure(EboEvent event) {
       if (event.node->get_state() == SUSCEPTIBLE && canTransmit(event.source)) {
 
-        auto newEvent = event;
-        newEvent.type = INCUBATE;
-        newEvent.source = nullptr;
-        newEvent.time += event_generator[newEvent.type](localrng);
+        auto newEvent = event; // copy old event
+        newEvent.type = INCUBATE; // update event type
+        newEvent.source = nullptr; // remove source
+        newEvent.time += event_time_generator[newEvent.type](); // draw new time
 
-        add_event(newEvent);
+        add_event(newEvent); // add the event to the queue
 
-        community.update_state(event.node, EXPOSED);
+        community.update_state(event.node, EXPOSED); // update community accounting
 
-        return true;
-      } else return false;
+        return true; // success
+      } else return false; // no exposure
     }
 
     bool incubation(EboEvent event) {
       if (event.node->get_state() == EXPOSED) {
 
-        auto newEvent = event;
+        auto newEvent = event; // definitely having at least one new event, so copy previous
 
-        double tDeath    = event_generator[DIE](localrng),
-               tRecover  = event_generator[RECOVER](localrng),
-               tHospital = event_generator[HOSPITAL](localrng);
-
+        // draw times for possible outcomes
+        double tDeath    = event_time_generator[DIE](),
+               tRecover  = event_time_generator[RECOVER](),
+               tHospital = event_time_generator[HOSPITAL]();
+        // which disease outcome?
         newEvent.type = tDeath < tRecover ? DIE : RECOVER;
         newEvent.time += min(tDeath, tRecover);
 
         add_event(newEvent);
 
+        // hospitalized first?
         if (tHospital < min(tDeath, tRecover)) {
           auto hospEvent = event;
           hospEvent.type = HOSPITAL;
@@ -138,6 +162,21 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
 
         community.update_state(event.node, INFECTIOUS);
 
+        double tInfectiousInCommunity = min(tHospital, tDeath, tRecover);
+        auto refExpEvent = event;
+        refExpEvent.source = event.node;
+        refExpEvent.type = EXPOSE;
+
+        for (auto neighbor : event.node->get_neighbors()) {
+          double expTime = event_time_generator[EXPOSE]();
+          if (expTime < tInfectiousInCommunity) {
+            auto expEvent = refExpEvent;
+            expEvent.node = neighbor;
+            expEvent.time += expTime;
+            add_event(expEvent);
+          }
+        }
+
         return true;
       } else return false;
     }
@@ -146,11 +185,17 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
 
     bool hospital(EboEvent event) {
       if (event.node->get_state() == INFECTIOUS) {
-        community.update_condition(event.node, HOSPITALIZED);
         if (notYetTraced) {
           notYetTraced = false;
-          // TODO trace events to neighbors
+          auto refTraceEvent = event;
+          refTraceEvent.type = TRACE;
+          refTraceEvent.source = event.node;
+          for (auto neighbor : event.node->get_neighbors()) {
+            // TODO trace events to neighbors - at this point, no one traced, so only need to check obs prob
+            // but still need to record edges as checked vs not
+          }
         }
+        community.update_condition(event.node, HOSPITALIZED);
         return true;
       } else return false;
     }
@@ -164,17 +209,60 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
 
     bool death(EboEvent event) {
       if (event.node->get_state() == INFECTIOUS) {
+        // TODO if tracing hasn't happened yet, draw time-to-detection event
         community.update_state(event.node, DEAD);
         return true;
       } else return false;
     }
 
     bool vaccination(EboEvent event) {
+      // TODO vaccination tracking
       return false;
     }
 
+    vector<int> level;
+    map<Node*,set<Node*>> traces;
+
     bool tracing(EboEvent event) {
-      return false;
+      int myLevel = level[event.source->get_id()]+1;
+
+      if (myLevel <= control_radius) {
+        if (level[event.node->get_id()] < 0) { // previously undetected node
+          myLevel = event.node->get_state() == INFECTIOUS ? 0 : myLevel;
+          if (myLevel and runif() < pCoverage) {
+            auto vacEvent = event;
+            vacEvent.type = VACCINATE;
+            vacEvent.time += event_time_generator[VACCINATE]();
+            add_event(vacEvent);
+          }
+          set<Node*> knownContacts = *(traces.emplace(event.node, set<Node*>()).first);
+          for (auto neighbor : event.node->get_neighbors()) if (runif() < pTrace) knownContacts.add(neighbor);
+          auto refTrace = event;
+          refTrace.source = event.node;
+          for (auto contact : knownContacts) {
+            auto traceEvent = refTrace;
+            traceEvent.node = contact;
+            traceEvent.time += event_time_generator[TRACE]();
+            // add event for everyone; alternative is get lowest of levels first
+            // then only add trace for relevant ones
+            add_event(traceEvent);
+            if (level[contact->get_id] >= 0 and level[contact->get_id]+1 < myLevel) myLevel = level[contact->get_id]+1;
+          }
+        } else if (myLevel < level[event.node->get_id()]) { // need to lower my level, resend
+          set<Node*> knownContacts = traces[event.node]; // contacts should already be known
+          for (auto contact : knownContacts) {
+            auto traceEvent = refTrace;
+            traceEvent.node = contact;
+            traceEvent.time += event_time_generator[TRACE]();
+            // add event for everyone; alternative is get lowest of levels first
+            // then only add trace for relevant ones
+            add_event(traceEvent);
+            if (level[contact->get_id()] >= 0 and level[contact->get_id()]+1 < myLevel) myLevel = level[contact->get_id()]+1;
+          }
+        }
+        level[event.node->get_id()] = myLevel;
+        return true;
+      } else return false;
     }
 
     bool eventerror(EboEvent event) {
@@ -182,6 +270,12 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
       exit(-2);
       return false;
     }
+
+    // TODO re-write next in terms of this + transform
+    // map<EventType, decltype(&EbolaSim::exposure)> links {
+    //   { EXPOSE, &EbolaSim::exposure },
+    //   { EXPOSE, &EbolaSim::exposure }
+    // };
 
     map< EventType, function<bool(EboEvent&)> > process_steps = {
       { EXPOSE,    bind(&EbolaSim::exposure,   this, _1) },
