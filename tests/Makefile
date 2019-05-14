@@ -24,6 +24,8 @@ $(EPI_PATH)/libsim.a: $(EPI_PATH)
 
 epifire: $(EPI_PATH)/libsim.a
 
+event_template.o core_event_queue.o: ../NetworkSimplate.h
+
 %.o: %.cpp | epifire
 	g++ $(FLAGS) $< -o $@ $(INCLUDE) $(LINK) -lsim $(GSL_LIB)
 

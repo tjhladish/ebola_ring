@@ -15,13 +15,13 @@ using namespace std;
 // NT := Node Type, defaults to standard EpiFire Node
 template<class EE, class NT = Node>
 struct Event {
-  double time;
+  double tm;
   EE which;
   NT* node;
   NT* source;
 
   // Event(const Event& o) { time=o.time; type=o.type; node = o.node; source=o.source; }
-  Event(double t, EE e, NT* n, NT* s = nullptr) : time(t), which(e), node(n), source(s) {}
+  Event(double t, EE e, NT* n, NT* s = nullptr) : tm(t), which(e), node(n), source(s) {}
   // ~Event() {}
 
   // Event& operator=(const Event& o) {
@@ -29,8 +29,9 @@ struct Event {
   //   return *this;
   // }
 
-  bool operator<(const Event& right) const { return (time < right.time); }
-  bool operator>(const Event& right) const { return (time > right.time); }
+  bool operator<(const Event& right) const { return (tm < right.tm); }
+  bool operator>(const Event& right) const { return (tm > right.tm); }
+  double time() { return tm; }
 
 };
 
@@ -54,8 +55,8 @@ class EventDrivenSim {
       const double timelimit = numeric_limits<double>::max()
     ) {
         for (auto e : initial_events) add_event(e);
-        double time = verbose(next_event(timelimit));
-        while (time < timelimit) time = verbose(next_event(timelimit));
+        double time = next_event(timelimit);
+        while (time < timelimit) time = next_event(timelimit);
         return time;
     }
 
@@ -64,8 +65,9 @@ class EventDrivenSim {
             return maxtime;
         } else {
             auto event = EventQ.top(); // get the element
-            EventQ.pop();               // remove from Q
-            process(event);
+            EventQ.pop();              // remove from Q
+            process(event);            // processing event may add items to Q, so this must be first
+            verbose(event.time());     // squawk as necessary
             return event.time();
         }
     }
@@ -74,9 +76,9 @@ class EventDrivenSim {
     void add_event( ET et ) { EventQ.push(et); }
 
     // hook to squawk as time passes
-    virtual void verbose(const double Now) {}
+    virtual void verbose(const double /* Now */) {}
     // hook to handle events
-    virtual void process(ET event) {}
+    virtual void process(ET /* event */) {}
 
     priority_queue<ET, vector<ET>, greater<ET> > EventQ;
     virtual void reset() { EventQ = priority_queue<ET, vector<ET>, greater<ET> >(); }
