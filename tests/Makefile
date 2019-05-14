@@ -24,23 +24,11 @@ $(EPI_PATH)/libsim.a: $(EPI_PATH)
 
 epifire: $(EPI_PATH)/libsim.a
 
-test_id_comm.o: test_id_comm.cpp epifire
+%.o: %.cpp | epifire
 	g++ $(FLAGS) $< -o $@ $(INCLUDE) $(LINK) -lsim $(GSL_LIB)
 
 test_id_comm.dot: test_id_comm.o test_net.csv
 	./$^ $@
-
-test_priorityq_comp.o: test_priorityq_comp.cpp
-	g++ $(FLAGS) $< -o $@
-
-test_eventdriven.o: test_eventdriven.cpp
-	g++ $(FLAGS) $< -o $@
-
-test_classmethodmap.o: test_classmethodmap.cpp
-	g++ $(FLAGS) $< -o $@
-
-test_rnghandling.o: test_rnghandling.cpp
-	g++ $(FLAGS) $< -o $@
 
 test_es.o: test_es.cpp ../EbolaSim.h
 	g++ $(FLAGS) $< -o $@ $(INCLUDE) $(LINK) -lsim $(GSL_LIB)
