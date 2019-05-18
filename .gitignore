@@ -3,3 +3,4 @@ ebola_net
 degvtime
 ebola_sim
 tests/*.o
+.Rproj.user

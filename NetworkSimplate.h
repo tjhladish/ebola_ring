@@ -10,6 +10,7 @@
 #include "Network.h"  // provides Node
 
 using namespace std;
+using namespace std::placeholders;
 
 // EE := Event Enum
 // NT := Node Type, defaults to standard EpiFire Node
@@ -31,13 +32,27 @@ struct Event {
 
   bool operator<(const Event& right) const { return (tm < right.tm); }
   bool operator>(const Event& right) const { return (tm > right.tm); }
-  double time() { return tm; }
+  double time() const { return tm; }
+  void time(double shift) { tm += shift; }
 
 };
 
-template<class EE, class NT = Node>
-ostream& operator<<(std::ostream &out, const Event<EE,NT> &e) {
-  return out << "Event(" << e.time << ", " << e.which << ")";
+template<class EE>
+ostream& operator<<(std::ostream &out, const Event<EE> &e) {
+  return out << "Event(" << e.time() << ", " << e.which << ")";
+}
+
+template<class EE, class ET, class SM>
+map<EE,function<bool(ET&)>> mapper(vector<EE> es, vector<bool (SM::*)(ET&)> fs, SM* that) {
+  map<EE,function<bool(ET&)>> res;
+  auto et = es.begin(); auto ft = fs.begin();
+  for (; et != es.end() and ft != fs.end(); et++, ft++) res[*et] = bind(*ft, that, _1);
+  return res;
+}
+
+template<class EE, class ET, class SM>
+pair<EE, function<bool(ET&)>> fpair(EE e, bool (SM::*f)(ET&), SM* that) {
+  return { e, bind(f, that, _1) };
 }
 
 // ET := Event Type;

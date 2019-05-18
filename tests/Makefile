@@ -26,10 +26,14 @@ epifire: $(EPI_PATH)/libsim.a
 
 event_template.o core_event_queue.o: ../NetworkSimplate.h
 
+id_community.o: ../IDCommunity.h
+
+test_es.o: ../IDCommunity.h ../EbolaSim.h ../NetworkSimplate.h
+
 %.o: %.cpp | epifire
 	g++ $(FLAGS) $< -o $@ $(INCLUDE) $(LINK) -lsim $(GSL_LIB)
 
-test_id_comm.dot: test_id_comm.o test_net.csv
+id_community.dot: id_community.o test_net.csv
 	./$^ $@
 
 test_es.o: test_es.cpp ../EbolaSim.h
