@@ -7,10 +7,10 @@ inline function<double(mt19937&)> dgamma(double mn, double sd) { return gamma_di
 int main(int /* argc */, char* argv[]) {
   Network n("test", Network::Undirected);
   n.read_edgelist(argv[1], ',');
-  mt19937 globalrng;
+  mt19937 sharedrng;
   SimPars ps = {
     &n, {
-      { EXPOSE,    dgamma(2,1) }, // time to exposure
+      { EXPOSE,    dgamma(4,2) }, // time to exposure
       { INCUBATE,  dgamma(5,2) }, // time to infectiousness, given exposure
       { RECOVER,   dgamma(9,4) }, // time to removed, given exposure
       { HOSPITAL,  dgamma(8,6) }  // time to removed, given exposure
@@ -19,7 +19,7 @@ int main(int /* argc */, char* argv[]) {
     1.0, // trace probability
     0.2, // background efficacy
     0.7,  // background coverage
-    globalrng
+    sharedrng
   };
 
   EbolaSim es(ps);

@@ -60,7 +60,7 @@ class IDCommunity {
     static const int UN_LEVEL = 1000;
     static const int NOTIFY_LEVEL = 100;
 
-    IDCommunity(Network* n, double backgroundCoverage, mt19937& globalrng) :
+    IDCommunity(Network* n, double backgroundCoverage, mt19937& sharedrng) :
     network(n),
     state_counts(N_STATES, zero),
 //    control_counts(N_CONDITIONS, 0),
@@ -69,7 +69,7 @@ class IDCommunity {
     reactive_vaccine(n->size(), std::numeric_limits<double>::infinity()), // has a "when" element
     prophylactic_vaccine(n->size(), false), // at the moment, only has an "if" element
     coverage(backgroundCoverage),
-    rng(globalrng)
+    rng(sharedrng)
     {
         reset();
     }
@@ -88,12 +88,13 @@ class IDCommunity {
     void setTraced() { anytrace = true; }
 
     vector<int> traced;
+    // TODO: change to get_observed_Level?
     int get_level(Node* n) { return get_level(n->get_id()); }
     int get_level(int id) { return traced[id]; }
     void set_level(Node* n, int lvl) { set_level(n->get_id(), lvl); }
     void set_level(int id, int lvl) { traced[id] = lvl; }
 
-    bool isTraced(Node* n) { return get_level(n) != UN_LEVEL; }
+    bool isNodeTraced(Node* n) { return get_level(n) != UN_LEVEL; }
 
     vector<double> reactive_vaccine;
     double ringVaccineTime(Node* node) { return ringVaccineTime(node->get_id()); }
@@ -169,6 +170,8 @@ class IDCommunity {
         e->get_complement()->set_cost(found_cost);
       }
     }
+
+    bool isFound(Edge* e) { return e->get_cost() == found_cost; }
 
     vector<bool> quarantined;
     void quarantine(int n) { quarantined[n] = true; }

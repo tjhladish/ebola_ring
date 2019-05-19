@@ -42,16 +42,16 @@ ostream& operator<<(std::ostream &out, const Event<EE> &e) {
   return out << "Event(" << e.time() << ", " << e.which << ")";
 }
 
-template<class EE, class ET, class SM>
-map<EE,function<bool(ET&)>> mapper(vector<EE> es, vector<bool (SM::*)(ET&)> fs, SM* that) {
-  map<EE,function<bool(ET&)>> res;
+template<class EE, class ET, class SM, class RT = bool>
+map<EE,function<bool(ET&)>> mapper(vector<EE> es, vector<RT (SM::*)(ET&)> fs, SM* that) {
+  map<EE,function<RT(ET&)>> res;
   auto et = es.begin(); auto ft = fs.begin();
   for (; et != es.end() and ft != fs.end(); et++, ft++) res[*et] = bind(*ft, that, _1);
   return res;
 }
 
-template<class EE, class ET, class SM>
-pair<EE, function<bool(ET&)>> fpair(EE e, bool (SM::*f)(ET&), SM* that) {
+template<class EE, class ET, class SM, class RT = bool>
+pair<EE, function<RT(ET&)>> fpair(EE e, RT (SM::*f)(ET&), SM* that) {
   return { e, bind(f, that, _1) };
 }
 
