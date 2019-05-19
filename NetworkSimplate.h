@@ -21,12 +21,12 @@ struct Event {
   NT* node;
   NT* source;
 
-  // Event(const Event& o) { time=o.time; type=o.type; node = o.node; source=o.source; }
+  // Event(const Event& o) { tm=o.tm; which=o.which; node = o.node; source=o.source; }
   Event(double t, EE e, NT* n, NT* s = nullptr) : tm(t), which(e), node(n), source(s) {}
   // ~Event() {}
 
   // Event& operator=(const Event& o) {
-  //   time=o.time; type=o.type; node=o.node; source=o.source;
+  //   tm=o.tm; which=o.which; node=o.node; source=o.source;
   //   return *this;
   // }
 

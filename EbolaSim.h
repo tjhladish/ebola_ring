@@ -78,6 +78,9 @@ struct SimPars {
   map<EventType, function<double(mt19937&)>> event_time_distribution;
   int simseed;
   double traceProbability;
+  double backgroundEff;
+  double backgroundCoverage;
+  mt19937& globalrng;
 };
 
 class EbolaSim : public EventDrivenSim<EboEvent> {
@@ -137,14 +140,15 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
 
     EbolaSim(SimPars& pars) :
     // assorted simple constructions
-      community(IDCommunity(pars.net)),
+      community(IDCommunity(pars.net, pars.backgroundCoverage, pars.globalrng)),
       index_case(pars.net->get_node(0)),
       disease_log_data(
         pars.net->size(),
         vector<double>(N_STATES, numeric_limits<double>::quiet_NaN())
       ),
       traceProbability(pars.traceProbability),
-      rngseed(pars.simseed)
+      backgroundEff(pars.backgroundEff),
+      rng(pars.globalrng)
     // construction with a bit more complexity
     {
         // concept: input parameters provides the distributions
@@ -153,26 +157,24 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
         for_each(
           pars.event_time_distribution.begin(), pars.event_time_distribution.end(),
           [&](pair<const EventType, function<double(mt19937&)>>& p) {
-            event_time_generator[p.first] = bind(p.second, std::ref(localrng));
+            event_time_generator[p.first] = bind(p.second, std::ref(rng));
           }
         );
         reset();
     }
 
-    int rngseed;
-    mt19937 localrng; // random number generator
+    mt19937& rng; // random number generator
     map<EventType, function<double()>> event_time_generator;
-    double runif() { return uniform_real_distribution<double>(0,1)(localrng); }
+    double runif() { return uniform_real_distribution<double>(0,1)(rng); }
 
     int day;
     IDCommunity community;
     Node* index_case;
     vector< vector<double> > disease_log_data;
     int control_radius = 2;
-    double traceProbability;
+    double traceProbability, backgroundEff;
 
     virtual void reset() {
-      localrng.seed(rngseed);
       disease_log_data.clear();
       disease_log_data.resize(community.size(), vector<double>(N_STATES, std::numeric_limits<double>::quiet_NaN()));
       community.reset();
@@ -189,8 +191,29 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
         source->get_state() == INFECTIOUS && not community.isQuarantined(source);
     }
 
+    double ringVaccineEff(double delta) {
+      if (delta < 0.0) {
+        return 0.0;
+      } else {
+        // sigmoid parameters to calculate? gamma CDF?
+        // sigmoid easier to parameterize by X% at time Y
+        return 0.0;
+      }
+    }
+
+    bool isSusceptible(EboEvent& event) {
+      Node* target = event.node;
+      double now = event.time();
+      if (target->get_state() == SUSCEPTIBLE) {
+        double beff = community.hasBackground(target) ? backgroundEff : 0.0;
+        double reff = ringVaccineEff(now - community.ringVaccineTime(target));
+        double efficacy = max(beff, reff);
+        return efficacy < runif();
+      } else return false;
+    }
+
     bool exposure(EboEvent& event) {
-      if (event.node->get_state() == SUSCEPTIBLE && canTransmit(event.source)) {
+      if (isSusceptible(event) && canTransmit(event.source)) {
 
         auto newEvent = event; // copy old event
         newEvent.which = INCUBATE; // update event type
@@ -247,6 +270,7 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
         if (not community.isTraced()) {
           auto traceEvent = event;
           traceEvent.which = TRACE;
+          traceEvent.source = traceEvent.node;
           add_event(traceEvent);
         }
         community.quarantine(event.node);
@@ -261,24 +285,72 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
       } else return false;
     }
 
-    bool tracing(EboEvent& event) {
-      int level = community.get_state(event.target) == INFECTIOUS ? 0 : community.level(event.source) + 1;
-      if (()) {
-        if (community.isTraced()) {
-          // no-op; for now, only doing one round of tracing
-          return false;
-        } else {
-          // first tracing event
-          // assign self level
+    void sendTrace(EboEvent& event) {
+      EboEvent refEvent = event;
+      // swap the reference event to be *from* this node
+      refEvent.source = event.node;
+      // the proposed new level for *targets*
+      int refLvl = community.get_level(event.node)+1;
+      // check all outgoing edges
+      for (auto edge : event.node->get_edges_out()) {
+        // if that edge has been found
+        if (edge->get_cost() == IDCommunity::found_cost) {
+          auto target = edge->get_end();
+          if (community.get_level(target) > refLvl) {
+            EboEvent sendEvent = refEvent;
+            sendEvent.node = target;
+            add_event(sendEvent);
+          }
         }
       }
-      // receiving the trace event means an node has been found
+    }
 
-      // check my trace status - if not found, something to do
-      // if already found, but new tracing indicates i should be closer, something to do
-      if (runif() < traceProbability) {
+    bool initialTrace(EboEvent& event) {
+      int level = event.node->get_state() >= INFECTIOUS ? 0 : community.get_level(event.source) + 1;
+      for (auto edge : event.node->get_edges_out()) {
+        // draw trace success
+        bool draw = runif() < traceProbability;
+        // record trace success or not
+        community.trace(edge, draw);
+        // potentially update level
+        if (draw) {
+          int otherLvl = community.get_level(edge->get_end()) + 1;
+          if (otherLvl < level) level = otherLvl;
+        }
+      }
+      // set level
+      community.set_level(event.node, level);
+      if (level < control_radius) sendTrace(event);
+      return true;
+    }
+
+    bool reTrace(EboEvent& event) {
+      int proposedLevel = community.get_level(event.source)+1;
+      if (proposedLevel < community.get_level(event.node)) {
+        // adjust my level
+        community.set_level(event.node, proposedLevel);
+        // notify my identified edges
+        sendTrace(event);
         return true;
       } else return false;
+    }
+
+    bool notification(EboEvent& event) {
+      assert(event.node == event.source);
+      if (community.isTraced()) {
+        // for now: only one round of tracing
+        // community.set_level(event.node, IDCommunity::NOTIFY_LEVEL);
+        return false;
+      } else {
+        community.setTraced();
+        return initialTrace(event);
+      }
+    }
+
+
+    bool tracing(EboEvent& event) {
+      if (event.node == event.source) return notification(event);
+      return community.isTraced(event.node) ? reTrace(event) : initialTrace(event);
     }
 
 /*    bool death(EboEvent& event) {

@@ -55,37 +55,58 @@ typedef unsigned int capita;
 
 class IDCommunity {
 
-  static const capita zero = 0;
-
   public:
-    IDCommunity(Network* n) :
+    static const capita zero = 0;
+    static const int UN_LEVEL = 1000;
+    static const int NOTIFY_LEVEL = 100;
+
+    IDCommunity(Network* n, double backgroundCoverage, mt19937& globalrng) :
     network(n),
     state_counts(N_STATES, zero),
 //    control_counts(N_CONDITIONS, 0),
-    traced(n->size(), -1),
+    traced(n->size(), UN_LEVEL),
     quarantined(n->size(), false),
-    reactive_vaccine(n->size(), -1.0),
-    prophylactic_vaccine(n->size(), -1.0)
+    reactive_vaccine(n->size(), std::numeric_limits<double>::infinity()), // has a "when" element
+    prophylactic_vaccine(n->size(), false), // at the moment, only has an "if" element
+    coverage(backgroundCoverage),
+    rng(globalrng)
     {
         reset();
     }
 
+    double coverage;
     Network* network;           // population
+    mt19937& rng;
+    double runif() { return uniform_real_distribution<double>(0,1)(rng); }
+
+
     vector<capita> state_counts;   // S, E, I, R, etc. counts
     // vector<capita> control_counts;
     // accounting for lack of multi-state on Node
     bool anytrace = false;
     bool isTraced() { return anytrace; }
+    void setTraced() { anytrace = true; }
 
     vector<int> traced;
-    int level(Node* n) { return level(n->get_id()); }
-    int level(int id) { return traced[id]; }
+    int get_level(Node* n) { return get_level(n->get_id()); }
+    int get_level(int id) { return traced[id]; }
+    void set_level(Node* n, int lvl) { set_level(n->get_id(), lvl); }
+    void set_level(int id, int lvl) { traced[id] = lvl; }
 
-
-    vector<bool> quarantined;
+    bool isTraced(Node* n) { return get_level(n) != UN_LEVEL; }
 
     vector<double> reactive_vaccine;
-    vector<double> prophylactic_vaccine;
+    double ringVaccineTime(Node* node) { return ringVaccineTime(node->get_id()); }
+    double ringVaccineTime(int id) { return reactive_vaccine[id]; }
+    void set_ringVaccineTime(Node* node, double when) { set_ringVaccineTime(node->get_id(), when); }
+    void set_ringVaccineTime(int id, double when) { reactive_vaccine[id] = when; }
+
+
+    vector<bool> prophylactic_vaccine;
+    bool hasBackground(Node* node) { return hasBackground(node->get_id()); }
+    bool hasBackground(int id) { return prophylactic_vaccine[id]; }
+    void set_backgroundVax(Node* node, bool covered = true) { set_backgroundVax(node->get_id(), covered); }
+    void set_backgroundVax(int id, bool covered = true) { prophylactic_vaccine[id] = covered; }
 
     capita size() { return network->size(); }
 
@@ -110,10 +131,16 @@ class IDCommunity {
       // control_counts.resize(N_CONDITIONS, 0);
       // control_counts[NONE] = network->size();
 
-      reset(traced, -1);
+      reset(traced, UN_LEVEL);
       reset(quarantined, false);
-      reset(reactive_vaccine, -1.0);
-      reset(prophylactic_vaccine, -1.0);
+      reset(reactive_vaccine, std::numeric_limits<double>::infinity());
+      // reset(prophylactic_vaccine, false);
+      // skip node 0
+      for (int i=1; i<prophylactic_vaccine.size(); i++) {
+        // TODO: need a runif
+        prophylactic_vaccine[i] = runif() < coverage;
+      }
+      // TODO: something special for node 0
       reset(state_counts, zero);
       state_counts[SUSCEPTIBLE] = network->size();
 
@@ -135,16 +162,15 @@ class IDCommunity {
     // missed = Inf
     // un-assessed
     void trace(Edge* e, bool success = true) {
-      anytrace = true;
-      assert(e->get_cost() == unknown_cost);
+      assert(e->get_cost() != missed_cost);
       e->set_cost(success ? found_cost : missed_cost);
       if (success) {
         cout << "tracing edge " << e->get_id() << "..." << endl;
-        // ? traced[e->get_end()->get_id()] = true;
         e->get_complement()->set_cost(found_cost);
       }
     }
 
+    vector<bool> quarantined;
     void quarantine(int n) { quarantined[n] = true; }
     void quarantine(Node* n) { quarantine(n->get_id()); }
 

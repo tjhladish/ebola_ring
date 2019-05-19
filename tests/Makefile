@@ -1,6 +1,6 @@
 -include ../local.mk
 
-FLAGS ?= -O2 -std=c++11 -Wall -Wextra -Wno-deprecated-declarations --pedantic
+FLAGS ?= -O2 -std=c++11 -Wall -Wextra -Wno-deprecated-declarations --pedantic -fmax-errors=5
 #
 # WORKSPACE ?= $(HOME)/work
 #
