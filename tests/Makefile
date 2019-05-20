@@ -44,5 +44,5 @@ test_es_abc: test_es_abc.cpp ../EbolaSim.h
 
 .PHONY: run_test_es
 
-run_test_es: test_es.o test_net.csv
-	./$^ $@
+test_result.csv: test_es.o test_net.csv
+	./$^ > $@

@@ -6,11 +6,6 @@ const gsl_rng* GSL_RNG = gsl_rng_alloc (gsl_rng_taus2); // RNG for AbcSmc
 inline double gamma_alpha(double mean, double sd) { return pow(mean/sd, 2); }
 inline double gamma_beta(double mean, double sd)  { return pow(sd,2)/mean; }
 inline function<double(mt19937&)> dgamma(double mn, double sd) { return gamma_distribution<double>(gamma_alpha(mn,sd), gamma_beta(mn,sd)); }
-inline double rcoverage(double efficacy, mt19937& rng) {
-  double u = uniform_real_distribution<double>(0,1)(rng), inveff = 1.0/efficacy;
-  return inveff - sqrt(pow(inveff,2.0)-2.0*inveff*u + u);
-}
-
 
 vector<double> simulator(vector<double> args, const unsigned long int rng_seed, const unsigned long int /*serial*/, const ABC::MPI_par* /*mp*/) {
   const int net_replicate   = (int) args[0];

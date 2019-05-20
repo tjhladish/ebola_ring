@@ -84,17 +84,17 @@ class IDCommunity {
     // vector<capita> control_counts;
     // accounting for lack of multi-state on Node
     bool anytrace = false;
-    bool isTraced() { return anytrace; }
+    bool isTraced() const { return anytrace; }
     void setTraced() { anytrace = true; }
 
     vector<int> traced;
     // TODO: change to get_observed_Level?
-    int get_level(Node* n) { return get_level(n->get_id()); }
-    int get_level(int id) { return traced[id]; }
-    void set_level(Node* n, int lvl) { set_level(n->get_id(), lvl); }
-    void set_level(int id, int lvl) { traced[id] = lvl; }
+    int get_level(const Node* n) const { return get_level(n->get_id()); }
+    int get_level(const int id) const { return traced[id]; }
+    void set_level(const Node* n, const int lvl) { set_level(n->get_id(), lvl); }
+    void set_level(const int id, const int lvl) { traced[id] = lvl; }
 
-    set<Node*> get_all_observed() {
+    set<Node*> get_all_observed() const {
       set<Node*> res;
       for (size_t i=0; i<traced.size(); i++) {
         if (traced[i] != UN_LEVEL) res.insert(network->get_node(i));
@@ -102,19 +102,19 @@ class IDCommunity {
       return res;
     }
 
-    bool isNodeTraced(Node* n) { return get_level(n) != UN_LEVEL; }
+    bool isNodeTraced(const Node* n) const { return get_level(n) != UN_LEVEL; }
 
     vector<double> reactive_vaccine;
-    double ringVaccineTime(Node* node) { return ringVaccineTime(node->get_id()); }
-    double ringVaccineTime(int id) { return reactive_vaccine[id]; }
-    void set_ringVaccineTime(Node* node, double when) { set_ringVaccineTime(node->get_id(), when); }
-    void set_ringVaccineTime(int id, double when) { reactive_vaccine[id] = when; }
+    double ringVaccineTime(const Node* node) const { return ringVaccineTime(node->get_id()); }
+    double ringVaccineTime(const int id) const { return reactive_vaccine[id]; }
+    void set_ringVaccineTime(const Node* node, double when) { set_ringVaccineTime(node->get_id(), when); }
+    void set_ringVaccineTime(const int id, double when) { reactive_vaccine[id] = when; }
 
     vector<bool> prophylactic_vaccine;
-    bool hasBackground(Node* node) { return hasBackground(node->get_id()); }
-    bool hasBackground(int id) { return prophylactic_vaccine[id]; }
-    void set_backgroundVax(Node* node, bool covered = true) { set_backgroundVax(node->get_id(), covered); }
-    void set_backgroundVax(int id, bool covered = true) { prophylactic_vaccine[id] = covered; }
+    bool hasBackground(const Node* node) const { return hasBackground(node->get_id()); }
+    bool hasBackground(const int id) const { return prophylactic_vaccine[id]; }
+    void set_backgroundVax(const Node* node, bool covered = true) { set_backgroundVax(node->get_id(), covered); }
+    void set_backgroundVax(const int id, bool covered = true) { prophylactic_vaccine[id] = covered; }
 
     capita size() { return network->size(); }
 
@@ -151,9 +151,9 @@ class IDCommunity {
 
     }
 
-    void update_state(int id, DiseaseState new_state) { update_state(network->get_node(id), new_state); }
+    void update_state(const int id, const DiseaseState new_state) { update_state(network->get_node(id), new_state); }
 
-    void update_state(Node* node, DiseaseState new_state) {
+    void update_state(Node* node, const DiseaseState new_state) {
       auto old_state = static_cast<DiseaseState>(node->get_state());
       node->set_state(new_state);
       state_counts[old_state]--; state_counts[new_state]++;
@@ -166,21 +166,21 @@ class IDCommunity {
     // found = 0
     // missed = Inf
     // un-assessed
-    void trace(Edge* e, bool success = true) {
+    void trace(Edge* e, const bool success = true) {
       assert(e->get_cost() != missed_cost);
       e->set_cost(success ? found_cost : missed_cost);
       // if successful, "find" the reverse edge as well, w/e it's status
       if (success) { e->get_complement()->set_cost(found_cost); }
     }
 
-    bool isFound(Edge* e) { return e->get_cost() == found_cost; }
+    bool isFound(const Edge* e) const { return e->get_cost() == found_cost; }
 
     vector<bool> quarantined;
-    void quarantine(int n) { quarantined[n] = true; }
-    void quarantine(Node* n) { quarantine(n->get_id()); }
+    void quarantine(const int n) { quarantined[n] = true; }
+    void quarantine(const Node* n) { quarantine(n->get_id()); }
 
-    bool isQuarantined(int n) { return quarantined[n]; }
-    bool isQuarantined(Node* n) { return isQuarantined(n->get_id()); }
+    bool isQuarantined(const int n) const { return quarantined[n]; }
+    bool isQuarantined(const Node* n) const { return isQuarantined(n->get_id()); }
 
     // void update_condition(Node* node, ControlCondition new_state) {
     //   auto old_state = control_condition[node->get_id()];

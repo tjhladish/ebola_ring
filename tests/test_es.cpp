@@ -16,7 +16,7 @@ int main(int /* argc */, char* argv[]) {
       { HOSPITAL,  dgamma(8,6) }  // time to removed, given exposure
     },
     1.0, // trace probability
-    0.2, // background efficacy
+    0.7, // background efficacy
     0.7,  // background coverage
     sharedrng
   };
