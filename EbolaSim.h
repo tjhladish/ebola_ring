@@ -211,7 +211,7 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
       // draw times for possible outcomes
       double // tDeath    = event_time_generator[DIE](),
              tRecover  = event_time_generator[RECOVER](),
-             tHospital = community.isNodeTraced(event.node()) ? 2.0 : event_time_generator[HOSPITAL]();
+             tHospital = community.isNodeTraced(event.node) ? 2.0 : event_time_generator[HOSPITAL]();
       // which outcome?
       newEvent.which = tHospital < tRecover ? HOSPITAL : RECOVER;
       newEvent.time(min(tHospital, tRecover));
