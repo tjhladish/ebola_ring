@@ -150,7 +150,7 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
     }
 
     vector<EboEvent> defaultEvents() {
-      return { EboEvent(0, EXPOSE, index_case) };
+      return { EboEvent(0, INCUBATE, index_case) };
     }
 
     bool canTransmit(Node* source) {
@@ -159,13 +159,19 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
         source->get_state() == INFECTIOUS && not community.isQuarantined(source);
     }
 
+    double logistic(const double x, const double offset, const double stretch, const double k = 1.25, const double mid = 3.5) const {
+      return(stretch*(1.0/(1.0+exp(-k*(x-mid)))-offset));
+    }
+
+    const double refoffset = logistic(0.0,0.0,1.0);
+    const double refstretch = 1.0/(1.0-2.0*refoffset);
+
     double ringVaccineEff(double timeSinceRingVaccination) {
       if (timeSinceRingVaccination < 0.0) {
         return 0.0;
       } else {
-        // sigmoid parameters to calculate? gamma CDF?
-        // sigmoid easier to parameterize by X% at time Y
-        return 0.0;
+        // see R/ring_vax_model_pars.R for value picking
+        return min(logistic(timeSinceRingVaccination, refoffset, refstretch), 1.0);
       }
     }
 
@@ -183,7 +189,6 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
 
         auto newEvent = event; // copy old event
         newEvent.which = INCUBATE; // update event type
-        newEvent.source = nullptr; // remove source
         newEvent.time(event_time_generator[newEvent.which]()); // draw new time
 
         add_event(newEvent); // add the event to the queue
@@ -195,7 +200,7 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
     }
 
     bool incubation(EboEvent& event) {
-      assert(event.node->get_state() == EXPOSED);
+      assert(event.node->get_state() == EXPOSED | !event.source);
 
       auto newEvent = event; // definitely having at least one new control_radievent, so copy previous
 

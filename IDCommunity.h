@@ -134,12 +134,9 @@ class IDCommunity {
       reset(quarantined, false);
       reset(reactive_vaccine, std::numeric_limits<double>::infinity());
       // reset(prophylactic_vaccine, false);
-      // skip node 0
-      for (unsigned int i=1; i<prophylactic_vaccine.size(); i++) {
-        // TODO: need a runif
+      for (unsigned int i=0; i<prophylactic_vaccine.size(); i++) {
         prophylactic_vaccine[i] = runif() < coverage;
       }
-      // TODO: something special for node 0
       reset(state_counts, zero);
       state_counts[SUSCEPTIBLE] = network->size();
 
