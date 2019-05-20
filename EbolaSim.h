@@ -397,7 +397,7 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
 };
 
 const string EbolaSim::loghead = "Event(WHICH on Target @ Time[ from Source])";
-const string EbolaSim::outhead = "id, level, background, rv, onset";
+const string EbolaSim::outhead = "id, level, background, trace, rv, onset";
 
 std::ostream& operator<<(std::ostream &out, EbolaSim &es) {
   auto net = es.community;
@@ -406,8 +406,8 @@ std::ostream& operator<<(std::ostream &out, EbolaSim &es) {
   // node ID (int), observed level (int),  background vax (bool), rv time (double), inf time (double)
   for (auto node : net.get_all_observed()) {
     out  << node->get_id() << ", " << net.get_level(node) <<
-    ", " << net.hasBackground(node) << ", " << elog[node->get_id()][VACCINATE] <<
-    ", " << elog[node->get_id()][INCUBATE] << endl;
+    ", " << net.hasBackground(node) << ", " << elog[node->get_id()][TRACE] <<
+    ", " << elog[node->get_id()][VACCINATE] << ", " << elog[node->get_id()][INCUBATE] << endl;
   }
   return out;
 }

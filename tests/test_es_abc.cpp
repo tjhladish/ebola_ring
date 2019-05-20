@@ -40,9 +40,9 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
   SimPars ps = {
     &n, {
       { EXPOSE,    dgamma(2,1) }, // time to exposure
-      { INCUBATE,  dgamma(5,2) }, // time to infectiousness, given exposure
-      { RECOVER,   dgamma(9,4) }, // time to removed, given exposure
-      { HOSPITAL,  dgamma(8,6) }  // time to removed, given exposure
+      { INCUBATE,  dgamma(9.9, 5.5) }, // time to infectiousness, given exposure
+      { RECOVER,   dgamma(8.9, 4) }, // time to removed, given exposure
+      { HOSPITAL,  dgamma(8, 6) }  // time to removed, given exposure
     },
     trace_prob,
     back_vac_eff,
