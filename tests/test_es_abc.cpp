@@ -35,7 +35,7 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
 // x = (-b +/- sqrt(b^2-4ac))/2a = 1/eff +/- sqrt((1/eff)^2-(2/eff - 1)y)
 // at the asymptotic values of y (0,1), it's clear that the - term is correct
 
-  double background_coverage = rcoverage(back_vac_eff, globalrng);
+  double background_coverage = EbolaSim::rcoverage(back_vac_eff, globalrng);
 
   SimPars ps = {
     &n, {

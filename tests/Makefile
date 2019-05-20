@@ -42,7 +42,13 @@ test_es.o: test_es.cpp ../EbolaSim.h
 test_es_abc: test_es_abc.cpp ../EbolaSim.h
 	g++ $(FLAGS) $< -o $@ $(INCLUDE) -I$(SQL_PATH) -I$(ABC_PATH) $(ABC_LIB) $(LINK) -lsim $(GSL_LIB)
 
-.PHONY: run_test_es
+test_abc_example.sqlite: test_es_abc abc_ebola_sim.json
+	./$^ --process
+
+.PHONY: run_abc
+
+run_abc: test_es_abc abc_ebola_sim.json
+	./$^ --simulate
 
 test_result.csv: test_es.o test_net.csv
 	./$^ > $@

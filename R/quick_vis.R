@@ -9,4 +9,4 @@ dt <- fread(.args[1])
 tracetm <- dt[,min(trace, na.rm = T)]
 rvtm <- dt[, min(rv, na.rm = T)]
 
-dt[, .N, by=.(background, onset=round(onset-rvtm)) ]
+agg.dt <- dt[, .N, by=.(background, onset=round(onset-rvtm)) ]
