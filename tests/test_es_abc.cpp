@@ -6,6 +6,11 @@ const gsl_rng* GSL_RNG = gsl_rng_alloc (gsl_rng_taus2); // RNG for AbcSmc
 inline double gamma_alpha(double mean, double sd) { return pow(mean/sd, 2); }
 inline double gamma_beta(double mean, double sd)  { return pow(sd,2)/mean; }
 inline function<double(mt19937&)> dgamma(double mn, double sd) { return gamma_distribution<double>(gamma_alpha(mn,sd), gamma_beta(mn,sd)); }
+inline double rcoverage(double efficacy, mt19937& rng) {
+  double u = uniform_real_distribution<double>(0,1)(rng), inveff = 1.0/efficacy;
+  return inveff - sqrt(pow(inveff,2.0)-2.0*inveff*u + u);
+}
+
 
 vector<double> simulator(vector<double> args, const unsigned long int rng_seed, const unsigned long int /*serial*/, const ABC::MPI_par* /*mp*/) {
   const int net_replicate   = (int) args[0];
@@ -20,7 +25,23 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
   n.read_edgelist(network_dir + network_filename, ',');
   assert(n.size() > 0);
 
-  mt19937 globalrng;
+  mt19937 globalrng(rng_seed);
+
+// backkground coverage calculation:
+// P(coverage=X|infection) = P(infection|coverage=X)P(coverage=X)/P(infection)
+// P(infection|coverage=X) = 1-P(!infection|coverage=X) = 1 - coverage*efficacy
+// CDF(coverage=X|infection) = int_0^X (1-coverage*efficacy)P(coverage=X)/P(infection)
+// assuming uniform probability of coverage (for initial pass)
+// P(infection)/P(coverage=X) = C = int_0^1 1 - coverage*efficacy = 1-efficacy/2
+// so:
+// CDF(coverage=X) = (1/(1-efficacy/2))*x(1-(efficacy/2)*x)
+// which means if y ~ U, then 0 = x^2 - (2/eff)*x + (2/eff - 1)y
+// which has a quadratic rule soln
+// x = (-b +/- sqrt(b^2-4ac))/2a = 1/eff +/- sqrt((1/eff)^2-(2/eff - 1)y)
+// at the asymptotic values of y (0,1), it's clear that the - term is correct
+
+  double background_coverage = rcoverage(back_vac_eff, globalrng);
+
   SimPars ps = {
     &n, {
       { EXPOSE,    dgamma(2,1) }, // time to exposure
@@ -28,10 +49,9 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
       { RECOVER,   dgamma(9,4) }, // time to removed, given exposure
       { HOSPITAL,  dgamma(8,6) }  // time to removed, given exposure
     },
-    rng_seed,
     trace_prob,
     back_vac_eff,
-    0.7,  // background coverage
+    background_coverage,  // background coverage
     globalrng
   };
 
