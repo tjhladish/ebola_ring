@@ -62,23 +62,22 @@ class IDCommunity {
 
     IDCommunity(Network* n, double backgroundCoverage, mt19937& sharedrng) :
     network(n),
+    coverage(backgroundCoverage),
+    rng(sharedrng),
     state_counts(N_STATES, zero),
 //    control_counts(N_CONDITIONS, 0),
     traced(n->size(), UN_LEVEL),
-    quarantined(n->size(), false),
     reactive_vaccine(n->size(), std::numeric_limits<double>::infinity()), // has a "when" element
     prophylactic_vaccine(n->size(), false), // at the moment, only has an "if" element
-    coverage(backgroundCoverage),
-    rng(sharedrng)
+    quarantined(n->size(), false)
     {
         reset();
     }
 
-    double coverage;
     Network* network;           // population
+    double coverage;
     mt19937& rng;
     double runif() { return uniform_real_distribution<double>(0,1)(rng); }
-
 
     vector<capita> state_counts;   // S, E, I, R, etc. counts
     // vector<capita> control_counts;
@@ -101,7 +100,6 @@ class IDCommunity {
     double ringVaccineTime(int id) { return reactive_vaccine[id]; }
     void set_ringVaccineTime(Node* node, double when) { set_ringVaccineTime(node->get_id(), when); }
     void set_ringVaccineTime(int id, double when) { reactive_vaccine[id] = when; }
-
 
     vector<bool> prophylactic_vaccine;
     bool hasBackground(Node* node) { return hasBackground(node->get_id()); }
@@ -137,7 +135,7 @@ class IDCommunity {
       reset(reactive_vaccine, std::numeric_limits<double>::infinity());
       // reset(prophylactic_vaccine, false);
       // skip node 0
-      for (int i=1; i<prophylactic_vaccine.size(); i++) {
+      for (unsigned int i=1; i<prophylactic_vaccine.size(); i++) {
         // TODO: need a runif
         prophylactic_vaccine[i] = runif() < coverage;
       }

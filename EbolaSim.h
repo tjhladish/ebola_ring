@@ -54,7 +54,7 @@ using EboEvent = Event<EventType>; // from NetworkSimplate, POD event container 
 struct SimPars {
   Network* net;
   map<EventType, function<double(mt19937&)>> event_time_distribution;
-  int simseed;
+  unsigned long int simseed;
   double traceProbability;
   double backgroundEff;
   double backgroundCoverage;
@@ -117,6 +117,7 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
 
     EbolaSim(SimPars& pars) :
     // assorted simple constructions
+      rng(pars.sharedrng),
       community(IDCommunity(pars.net, pars.backgroundCoverage, pars.sharedrng)),
       index_case(pars.net->get_node(0)),
       disease_log_data(
@@ -124,8 +125,7 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
         vector<double>(N_STATES, numeric_limits<double>::quiet_NaN())
       ),
       traceProbability(pars.traceProbability),
-      backgroundEff(pars.backgroundEff),
-      rng(pars.sharedrng)
+      backgroundEff(pars.backgroundEff)
     // construction with a bit more complexity
     {
         // concept: input parameters provides the distributions
