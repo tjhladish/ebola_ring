@@ -163,10 +163,8 @@ class IDCommunity {
     void trace(Edge* e, bool success = true) {
       assert(e->get_cost() != missed_cost);
       e->set_cost(success ? found_cost : missed_cost);
-      if (success) {
-        cout << "tracing edge " << e->get_id() << "..." << endl;
-        e->get_complement()->set_cost(found_cost);
-      }
+      // if successful, "find" the reverse edge as well, w/e it's status
+      if (success) { e->get_complement()->set_cost(found_cost); }
     }
 
     bool isFound(Edge* e) { return e->get_cost() == found_cost; }

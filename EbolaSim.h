@@ -4,9 +4,7 @@
 #include <stdlib.h>
 #include <vector>
 #include <iostream>
-#include <queue>
 #include <random>
-#include <iomanip>
 #include <map>
 #include <functional>
 #include <unistd.h>
@@ -16,12 +14,6 @@
 
 using namespace std;
 using namespace std::placeholders; // gives _1, _2, etc
-
-//int seed = 0;             // to use a static seed
-//mt19937 gen(seed);
-
-// uniform_real_distribution<double> runif(0.0, 1.0);
-// mt19937 rng;                      // random number generator
 
 enum EventType {
   EXPOSE,
@@ -54,7 +46,6 @@ using EboEvent = Event<EventType>; // from NetworkSimplate, POD event container 
 struct SimPars {
   Network* net;
   map<EventType, function<double(mt19937&)>> event_time_distribution;
-  unsigned long int simseed;
   double traceProbability;
   double backgroundEff;
   double backgroundCoverage;
@@ -212,6 +203,7 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
       double // tDeath    = event_time_generator[DIE](),
              tRecover  = event_time_generator[RECOVER](),
              tHospital = community.isNodeTraced(event.node) ? 2.0 : event_time_generator[HOSPITAL]();
+             // ANOTHER MAGIC NUMBER - reduced hospitalization time is 2.0
       // which outcome?
       newEvent.which = tHospital < tRecover ? HOSPITAL : RECOVER;
       newEvent.time(min(tHospital, tRecover));
@@ -297,9 +289,8 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
       }
       // set level
       community.set_level(event.node, level);
-      if (level < control_radius) {
-        cout << "level on " << event.node->get_id() << " is " << level << endl;
-        sendTraceEvents(event);
+      if (level <= control_radius) {
+        if (level < control_radius) sendTraceEvents(event);
         if (level != 0) {
           auto vacEvent = event;
           vacEvent.which = VACCINATE;
@@ -339,7 +330,8 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
     }
 
     bool vaccinate(EboEvent& event) {
-      assert(community.ringVaccineTime(event.node) != std::numeric_limits<double>::infinity());
+      // hasn't been previously vaccinated...
+      assert(community.ringVaccineTime(event.node) == std::numeric_limits<double>::infinity());
       community.set_ringVaccineTime(event.node, event.time());
       return true;
     }

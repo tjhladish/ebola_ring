@@ -4,11 +4,11 @@ FLAGS ?= -O2 -std=c++11 -Wall -Wextra -Wno-deprecated-declarations --pedantic -f
 #
 # WORKSPACE ?= $(HOME)/work
 #
-# ABC_PATH = $(WORKSPACE)/AbcSmc
+ABC_PATH = $(WORKSPACE)/AbcSmc
 # # override these to use system copies, rather than AbcSmc copies
 # GSL_PATH ?= $(ABC_PATH)/gsl_local
-# SQL_PATH ?= $(ABC_PATH)/sqdb
 
+SQL_PATH ?= $(ABC_PATH)/sqdb
 EPI_PATH = $(WORKSPACE)/EpiFire/src
 ABC_LIB = -L$(ABC_PATH) -labc -ljsoncpp -lsqdb $(ABC_PATH)/sqlite3.o
 GSL_LIB = -lm -lgsl -lgslcblas -pthread -Wl,--no-as-needed -ldl
