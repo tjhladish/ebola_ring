@@ -7,7 +7,7 @@ inline double gamma_alpha(double mean, double sd) { return pow(mean/sd, 2); }
 inline double gamma_beta(double mean, double sd)  { return pow(sd,2)/mean; }
 inline function<double(mt19937&)> dgamma(double mn, double sd) { return gamma_distribution<double>(gamma_alpha(mn,sd), gamma_beta(mn,sd)); }
 
-vector<double> simulator(vector<double> args, const unsigned long int rng_seed, const unsigned long int /*serial*/, const ABC::MPI_par* /*mp*/) {
+vector<double> simulator(vector<double> args, const unsigned long int rng_seed, const unsigned long int serial, const ABC::MPI_par* /*mp*/) {
   const int net_replicate   = (int) args[0];
   //const int epi_replicate   = (int) args[1];
   const double back_vac_eff = args[2];
@@ -51,8 +51,8 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
   };
 
   EbolaSim es(ps);
-  cout << EbolaSim::loghead << endl;
-  es.run(es.defaultEvents(), 100.0);
+  es.run(es.defaultEvents());
+  EbolaSim::dump(cout, es, to_string(serial));
   vector<double> metrics(1,0);
   return metrics;
 }

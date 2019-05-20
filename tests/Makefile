@@ -45,10 +45,22 @@ test_es_abc: test_es_abc.cpp ../EbolaSim.h
 test_abc_example.sqlite: test_es_abc abc_ebola_sim.json
 	./$^ --process
 
-.PHONY: run_abc
+FORCE:
 
-run_abc: test_es_abc abc_ebola_sim.json
-	./$^ --simulate
+work%.log: test_es_abc abc_ebola_sim.json FORCE | test_abc_example.sqlite
+	./$(filter-out FORCE,$^) --simulate -n 100 >> $@
+
+THREADS = 6
+SEQ = $(strip $(shell seq $(THREADS)))
+LOGS = $(patsubst %,work%.log,$(SEQ))
+
+dowork: $(LOGS)
+	sqlite3 test_abc_example.sqlite 'select count(*) from job where status="Q";'
+	wc -l *.log
+
+cleanwork:
+	rm test_abc_example.sqlite
+	rm $(LOGS)
 
 test_result.csv: test_es.o test_net.csv
 	./$^ > $@
