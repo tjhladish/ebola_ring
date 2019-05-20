@@ -394,6 +394,18 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
       return inveff - sqrt(pow(inveff,2.0)-2.0*inveff*u + u);
     }
 
+    static void dump(std::ostream &out, EbolaSim &es, string prepend) {
+      auto net = es.community;
+      auto elog = es.event_log;
+      // output:
+      // prepend, node ID (int), observed level (int),  background vax (bool), trace time (double), rv time (double), inf time (double)
+      for (auto node : net.get_all_observed()) {
+        out  << prepend << ", " << node->get_id() << ", " << net.get_level(node) <<
+        ", " << net.hasBackground(node) << ", " << elog[node->get_id()][TRACE] <<
+        ", " << elog[node->get_id()][VACCINATE] << ", " << elog[node->get_id()][INCUBATE] << endl;
+      }
+    }
+
 };
 
 const string EbolaSim::loghead = "Event(WHICH on Target @ Time[ from Source])";
@@ -403,7 +415,7 @@ std::ostream& operator<<(std::ostream &out, EbolaSim &es) {
   auto net = es.community;
   auto elog = es.event_log;
   // output:
-  // node ID (int), observed level (int),  background vax (bool), rv time (double), inf time (double)
+  // node ID (int), observed level (int),  background vax (bool), trace time (double), rv time (double), inf time (double)
   for (auto node : net.get_all_observed()) {
     out  << node->get_id() << ", " << net.get_level(node) <<
     ", " << net.hasBackground(node) << ", " << elog[node->get_id()][TRACE] <<
