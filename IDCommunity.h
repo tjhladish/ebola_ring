@@ -2,6 +2,7 @@
 #define IDCOMMUNITY_H
 
 #include <vector>
+#include <set>
 #include <iostream>
 #include "Network.h"
 
@@ -92,6 +93,14 @@ class IDCommunity {
     int get_level(int id) { return traced[id]; }
     void set_level(Node* n, int lvl) { set_level(n->get_id(), lvl); }
     void set_level(int id, int lvl) { traced[id] = lvl; }
+
+    set<Node*> get_all_observed() {
+      set<Node*> res;
+      for (size_t i=0; i<traced.size(); i++) {
+        if (traced[i] != UN_LEVEL) res.insert(network->get_node(i));
+      }
+      return res;
+    }
 
     bool isNodeTraced(Node* n) { return get_level(n) != UN_LEVEL; }
 

@@ -57,16 +57,16 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
 
     void process(EboEvent event) {
       bool success = process_steps[event.which](event);
-      DiseaseState DSupdate = disease_outcome[event.which];
-      ControlCondition CCupdate = control_outcome[event.which];
+      // DiseaseState DSupdate = disease_outcome[event.which];
+      // ControlCondition CCupdate = control_outcome[event.which];
       //DiseaseState updateTo = disease_outcome[event.which];
       if (success) {
-        logupdate(event, DSupdate);
-        logupdate(event, CCupdate);
-        if (DSupdate == EXPOSED) {
-          // update infector log
-        }
-        // don't need to update TRACED log? since that's already a thing that can be printed from
+        eventrecord(event);
+        // logupdate(event, DSupdate);
+        // logupdate(event, CCupdate);
+        // if (DSupdate == EXPOSED) {
+        //   // update infector log
+        // }
       }
     }
 
@@ -111,9 +111,9 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
       rng(pars.sharedrng),
       community(IDCommunity(pars.net, pars.backgroundCoverage, pars.sharedrng)),
       index_case(pars.net->get_node(0)),
-      disease_log_data(
+      event_log(
         pars.net->size(),
-        vector<double>(N_STATES, numeric_limits<double>::quiet_NaN())
+        vector<double>(N_EVENTS, numeric_limits<double>::quiet_NaN())
       ),
       traceProbability(pars.traceProbability),
       backgroundEff(pars.backgroundEff)
@@ -138,13 +138,13 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
     int day;
     IDCommunity community;
     Node* index_case;
-    vector< vector<double> > disease_log_data;
+    vector< vector<double> > event_log;
     int control_radius = 2;
     double traceProbability, backgroundEff;
 
     virtual void reset() {
-      disease_log_data.clear();
-      disease_log_data.resize(community.size(), vector<double>(N_STATES, std::numeric_limits<double>::quiet_NaN()));
+      event_log.clear();
+      event_log.resize(community.size(), vector<double>(N_EVENTS, std::numeric_limits<double>::quiet_NaN()));
       community.reset();
       EventDrivenSim<EboEvent>::reset(); // also reset eventQ
     }
@@ -185,22 +185,22 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
     }
 
     bool exposure(EboEvent& event) {
-      if (isSusceptible(event.node, event.time()) && canTransmit(event.source)) {
+      bool exposed = isSusceptible(event.node, event.time()) && canTransmit(event.source);
+      if (not exposed) return false;
 
-        auto newEvent = event; // copy old event
-        newEvent.which = INCUBATE; // update event type
-        newEvent.time(event_time_generator[newEvent.which]()); // draw new time
+      auto newEvent = event; // copy old event
+      newEvent.which = INCUBATE; // update event type
+      newEvent.time(event_time_generator[newEvent.which]()); // draw new time
 
-        add_event(newEvent); // add the event to the queue
+      add_event(newEvent); // add the event to the queue
 
-        community.update_state(event.node, EXPOSED); // update community accounting
+      community.update_state(event.node, EXPOSED); // update community accounting
 
-        return true; // success
-      } else return false; // no exposure
+      return true;
     }
 
     bool incubation(EboEvent& event) {
-      assert(event.node->get_state() == EXPOSED | !event.source);
+      assert((event.node->get_state() == EXPOSED) | !event.source);
 
       auto newEvent = event; // definitely having at least one new control_radievent, so copy previous
 
@@ -359,30 +359,50 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
 
     static const string loghead;
 
-    void logupdate(EboEvent event, DiseaseState ds) {
-      if (ds != N_STATES) {
-        cout << "Event(" <<
-        event.which << " on " << event.node->get_id() <<
-        " @ " << event.time();
-        if (event.source) cout << " from " << event.source->get_id();
-        cout <<  ")" << endl;
-        disease_log_data[event.node->get_id()][ds] = event.time();
-      }
+    static const string outhead;
+
+    void eventrecord(EboEvent& event) {
+      event_log[event.node->get_id()][event.which] = event.time();
     }
 
-    void logupdate(EboEvent event, ControlCondition cc) {
-      if (cc != N_CONDITIONS) {
-        cout << "Event(" <<
-        event.which << " on " << event.node->get_id() <<
-        " @ " << event.time();
-        if (event.source) cout << " from " << event.source->get_id();
-        cout <<  ")" << endl;
-        disease_log_data[event.node->get_id()][cc] = event.time();
-      }
-    }
+    // void logupdate(EboEvent event, DiseaseState ds) {
+    //   if (ds != N_STATES) {
+    //     cout << "Event(" <<
+    //     event.which << " on " << event.node->get_id() <<
+    //     " @ " << event.time();
+    //     if (event.source) cout << " from " << event.source->get_id();
+    //     cout <<  ")" << endl;
+    //     disease_log_data[event.node->get_id()][ds] = event.time();
+    //   }
+    // }
+    //
+    // void logupdate(EboEvent event, ControlCondition cc) {
+    //   if (cc != N_CONDITIONS) {
+    //     cout << "Event(" <<
+    //     event.which << " on " << event.node->get_id() <<
+    //     " @ " << event.time();
+    //     if (event.source) cout << " from " << event.source->get_id();
+    //     cout <<  ")" << endl;
+    //     disease_log_data[event.node->get_id()][cc] = event.time();
+    //   }
+    // }
 
 };
 
 const string EbolaSim::loghead = "Event(WHICH on Target @ Time[ from Source])";
+const string EbolaSim::outhead = "id, level, background, rv, onset";
+
+std::ostream& operator<<(std::ostream &out, EbolaSim &es) {
+  auto net = es.community;
+  auto elog = es.event_log;
+  // output:
+  // node ID (int), observed level (int),  background vax (bool), rv time (double), inf time (double)
+  for (auto node : net.get_all_observed()) {
+    out  << node->get_id() << ", " << net.get_level(node) <<
+    ", " << net.hasBackground(node) << ", " << elog[node->get_id()][VACCINATE] <<
+    ", " << elog[node->get_id()][INCUBATE] << endl;
+  }
+  return out;
+}
 
 #endif

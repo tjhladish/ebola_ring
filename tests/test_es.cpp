@@ -22,7 +22,8 @@ int main(int /* argc */, char* argv[]) {
   };
 
   EbolaSim es(ps);
-  cout << EbolaSim::loghead << endl;
-  es.run(es.defaultEvents(), 100.0);
+  cout << EbolaSim::outhead << endl;
+  es.run(es.defaultEvents());
+  cout << es;
   return 0;
 }
