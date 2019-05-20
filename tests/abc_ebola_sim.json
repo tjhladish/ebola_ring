@@ -1,0 +1,44 @@
+{
+    "smc_iterations" : 1,
+    "num_samples"    : 3300,
+    "predictive_prior_fraction" : 0.01,
+    "pls_training_fraction"     : 0.5,
+    "noise"                     : "MULTIVARIATE",
+
+    "database_filename"             : "test_abc_example.sqlite",
+
+    "parameters" : [
+        {"name"       : "net_rep",
+         "dist_type"  : "PSEUDO",
+         "num_type"   : "FLOAT",
+         "par1"       : 0,
+         "par2"       : 9},
+
+        {"name"       : "epi_rep",
+         "dist_type"  : "PSEUDO",
+         "num_type"   : "FLOAT",
+         "par1"       : 0,
+         "par2"       : 9},
+
+        {"name"       : "backgroupd_vaccine_efficacy",
+         "short_name" : "bveff",
+         "dist_type"  : "PSEUDO",
+         "num_type"   : "FLOAT",
+         "par1"       : 0.0,
+         "par2"       : 1.0,
+         "step"       : 0.1},
+
+        {"name"       : "trace_prob",
+         "dist_type"  : "PSEUDO",
+         "num_type"   : "FLOAT",
+         "par1"       : 0.5,
+         "par2"       : 1.0,
+         "step"       : 0.25}
+    ],                
+
+    "metrics" : [     
+        {"name"       : "final_size",
+         "num_type"   : "FLOAT",
+         "value"      : 0}
+    ]
+}
