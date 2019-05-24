@@ -7,11 +7,13 @@ inline double gamma_alpha(double mean, double sd) { return pow(mean/sd, 2); }
 inline double gamma_beta(double mean, double sd)  { return pow(sd,2)/mean; }
 inline function<double(mt19937&)> dgamma(double mn, double sd) { return gamma_distribution<double>(gamma_alpha(mn,sd), gamma_beta(mn,sd)); }
 
-vector<double> simulator(vector<double> args, const unsigned long int rng_seed, const unsigned long int serial, const ABC::MPI_par* /*mp*/) {
+vector<double> simulator(vector<double> args, const unsigned long int rng_seed, const unsigned long int /* serial */, const ABC::MPI_par* /*mp*/) {
   const int net_replicate   = (int) args[0];
   //const int epi_replicate   = (int) args[1];
   const double back_vac_eff = args[2];
   const double trace_prob   = args[3];
+  const double exp_sd   = args[4];
+  const double vaccine_delay   = args[5];
 
   Network n(Network::Undirected);
   string network_dir      = "./networks/";
@@ -39,7 +41,7 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
 
   SimPars ps = {
     &n, {
-      { EXPOSE,    dgamma(2,1) }, // time to exposure
+      { EXPOSE,    dgamma(12, exp_sd) }, // time to exposure
       { INCUBATE,  dgamma(9.9, 5.5) }, // time to infectiousness, given exposure
       { RECOVER,   dgamma(8.9, 4) }, // time to removed, given exposure
       { HOSPITAL,  dgamma(8, 6) }  // time to removed, given exposure
@@ -47,13 +49,25 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
     trace_prob,
     back_vac_eff,
     background_coverage,  // background coverage
-    globalrng
+    globalrng,
+    vaccine_delay,
+    6.0 // offset look time limit
   };
 
   EbolaSim es(ps);
   es.run(es.defaultEvents());
-  EbolaSim::dump(cout, es, to_string(serial));
-  vector<double> metrics(1,0);
+//  EbolaSim::dump(cout, es, to_string(serial));
+  vector<double> metrics = {
+    background_coverage, es.countPreVax(),
+    es.count_at(true, true, 0), // vaccinated, EBOV pos, at vaccine-time
+    es.count_at(true, false, 0), // vaccinated, EBOV neg, at vaccine-time
+    es.count_at(false, true, 0), // not, EBOV pos, at vaccine-time
+    es.count_at(false, false, 0), // not, EBOV neg, at vaccine-time
+    es.count_at(true, true, 6), // vaccinated, EBOV pos, at vaccine-time
+    es.count_at(true, false, 6), // vaccinated, EBOV neg, at vaccine-time
+    es.count_at(false, true, 6), // not, EBOV pos, at vaccine-time
+    es.count_at(false, false, 6) // not, EBOV neg, at vaccine-time
+  };
   return metrics;
 }
 

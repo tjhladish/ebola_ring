@@ -1,0 +1,6 @@
+{
+  "exposure": [ 12.0, 3 ],
+  "incubate": [ 9.9, 5.5 ],
+  "recover":  [ 8.9, 4.0 ],
+  "hospital": [ 8.0, 6.0 ]
+}

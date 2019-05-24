@@ -65,6 +65,7 @@ class IDCommunity {
     network(n),
     coverage(backgroundCoverage),
     rng(sharedrng),
+    exposures(n->size(), 0),
     state_counts(N_STATES, zero),
 //    control_counts(N_CONDITIONS, 0),
     traced(n->size(), UN_LEVEL),
@@ -80,7 +81,17 @@ class IDCommunity {
     mt19937& rng;
     double runif() { return uniform_real_distribution<double>(0,1)(rng); }
 
+    vector<int> exposures;   // number of exposures individual experiences
     vector<capita> state_counts;   // S, E, I, R, etc. counts
+    void countAttack(const Node* n) {
+      if (n->get_state() == SUSCEPTIBLE) exposures[n->get_id()] += 1;
+    };
+
+    int getAttacks(const Node* n) const {
+      return exposures[n->get_id()];
+    }
+
+
     // vector<capita> control_counts;
     // accounting for lack of multi-state on Node
     bool anytrace = false;
@@ -118,11 +129,15 @@ class IDCommunity {
 
     capita size() { return network->size(); }
 
-    capita current_epidemic_size() {
+    capita current(const DiseaseState ds) const {
+      return state_counts[ds];
+    }
+
+    capita current_epidemic_size() const {
       return state_counts[EXPOSED] + state_counts[INFECTIOUS];
     }
 
-    capita final_size() {
+    capita final_size() const {
       return current_epidemic_size() + state_counts[HOSPITALIZED] + state_counts[RECOVERED];// + state_counts[DEAD];
     }
 
@@ -147,6 +162,7 @@ class IDCommunity {
         prophylactic_vaccine[i] = runif() < coverage;
       }
       reset(state_counts, zero);
+      reset(exposures, 0);
       state_counts[SUSCEPTIBLE] = network->size();
 
     }

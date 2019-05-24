@@ -2,8 +2,25 @@ require(jsonlite)
 require(data.table)
 require(cowplot)
 
-.args <- c("timedistros.json")
+.args <- c("timedistros.json", "../tests/networks")
 .args <- commandArgs(trailingOnly = T)
+
+netpath <- .args[2]
+nets <- list.files(netpath, pattern=".csv", full.names = T)
+
+require(igraph)
+
+p0k <- rle(sort(sapply(nets, function(pth) {
+  dt <- fread(pth)
+  if (dim(dt)[2] == 2) {
+    g <- igraph::graph_from_data_frame(dt, directed = F)
+    unname(degree(g, V(g)[1]))
+  } else 0
+}, USE.NAMES = F)))
+
+gamma_alpha <- function(mn, sd) (mn/sd)^2
+gamma_beta <- function(mn, sd) (sd^2)/mn
+adgamma <- function(mn, sd) function(n) rgamma(n, shape = gamma_alpha(mn,sd), scale = gamma_beta(mn,sd))
 
 # standard is wikipedia k, theta formulation
 # so mean = k*theta
@@ -11,10 +28,6 @@ require(cowplot)
 # and k => (mn/sd)^2
 # cpp gamma_distribution uses alpha = k, beta = theta
 # rgamma uses shape = k, scale = theta
-
-gamma_alpha <- function(mn, sd) (mn/sd)^2
-gamma_beta <- function(mn, sd) (sd^2)/mn
-adgamma <- function(mn, sd) function(n) rgamma(n, shape = gamma_alpha(mn,sd), scale = gamma_beta(mn,sd))
 
 xformdistros <- lapply(read_json(.args[1], simplifyVector = T), function(xs) {
   list(shape=gamma_alpha(xs[1],xs[2]), scale=gamma_beta(xs[1], xs[2]))
@@ -43,8 +56,8 @@ tst[, qtle := pgamma(
   tm, shape = xformdistros$exposure$shape, scale=xformdistros$exposure$scale
 )]
 
-tst[, n0 := sample(10, .N, rep = T)]
-tst[, R0 := n0*qtle ]
+tst[, n0 := sample(p0k$values, .N, rep = T, prob = p0k$lengths)]
+tst[, Robs := rbinom(.N,n0,qtle) ]
 
-histof <- ggplot(tst) + aes(x=R0) + geom_histogram()
-tst[, mean(R0)]
+histof <- ggplot(tst) + aes(x=Robs) + geom_histogram()
+tst[, .(med=median(Robs),mn=mean(Robs))]

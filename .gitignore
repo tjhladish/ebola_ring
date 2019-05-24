@@ -4,3 +4,4 @@ degvtime
 ebola_sim
 tests/*.o
 .Rproj.user
+tests/networks/*

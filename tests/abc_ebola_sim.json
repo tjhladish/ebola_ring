@@ -1,6 +1,6 @@
 {
     "smc_iterations" : 1,
-    "num_samples"    : 3300,
+    "num_samples"    : 495000,
     "predictive_prior_fraction" : 0.01,
     "pls_training_fraction"     : 0.5,
     "noise"                     : "MULTIVARIATE",
@@ -12,7 +12,7 @@
          "dist_type"  : "PSEUDO",
          "num_type"   : "FLOAT",
          "par1"       : 0,
-         "par2"       : 9},
+         "par2"       : 499},
 
         {"name"       : "epi_rep",
          "dist_type"  : "PSEUDO",
@@ -20,7 +20,7 @@
          "par1"       : 0,
          "par2"       : 9},
 
-        {"name"       : "backgroupd_vaccine_efficacy",
+        {"name"       : "background_vaccine_efficacy",
          "short_name" : "bveff",
          "dist_type"  : "PSEUDO",
          "num_type"   : "FLOAT",
@@ -33,12 +33,62 @@
          "num_type"   : "FLOAT",
          "par1"       : 0.5,
          "par2"       : 1.0,
-         "step"       : 0.25}
-    ],                
+         "step"       : 0.25},
 
-    "metrics" : [     
-        {"name"       : "final_size",
+       {"name"       : "exp_sd",
+        "dist_type"  : "PSEUDO",
+        "num_type"   : "FLOAT",
+        "par1"       : 3.0,
+        "par2"       : 5.0,
+        "step"       : 1.0},
+
+       {"name"       : "vaccine_delay",
+        "dist_type"  : "PSEUDO",
+        "num_type"   : "FLOAT",
+        "par1"       : 2.0,
+        "par2"       : 6.0,
+        "step"       : 2.0}
+    ],
+
+    "metrics" : [
+        {"name"     : "realized_coverage",
+         "num_type" : "FLOAT",
+         "value"    : 0},
+
+        {"name"     : "count_pre_vax",
+         "num_type" : "FLOAT",
+         "value"    : 0},
+
+        {"name"     : "vaccine_pos_0",
+         "num_type" : "FLOAT",
+         "value"    : 0},
+
+        {"name" : "vaccine_neg_0",
          "num_type"   : "FLOAT",
-         "value"      : 0}
+         "value"      : 0},
+
+        {"name" : "unvax_pos_0",
+         "num_type"   : "FLOAT",
+         "value"      : 0},
+
+        {"name" : "unvax_neg_0",
+         "num_type"   : "FLOAT",
+         "value"      : 0},
+
+        {"name" : "vaccine_pos_6",
+          "num_type"   : "FLOAT",
+          "value"      : 0},
+
+        {"name" : "vaccine_neg_6",
+          "num_type"   : "FLOAT",
+          "value"      : 0},
+
+        {"name" : "unvax_pos_6",
+          "num_type"   : "FLOAT",
+          "value"      : 0},
+
+        {"name" : "unvax_neg_6",
+          "num_type"   : "FLOAT",
+          "value"      : 0}
     ]
 }

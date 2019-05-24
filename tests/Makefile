@@ -39,28 +39,32 @@ id_community.dot: id_community.o test_net.csv
 test_es.o: test_es.cpp ../EbolaSim.h
 	g++ $(FLAGS) $< -o $@ $(INCLUDE) $(LINK) -lsim $(GSL_LIB)
 
-test_es_abc: test_es_abc.cpp ../EbolaSim.h
+test_es_abc: test_es_abc.cpp ../EbolaSim.h ../IDCommunity.h
 	g++ $(FLAGS) $< -o $@ $(INCLUDE) -I$(SQL_PATH) -I$(ABC_PATH) $(ABC_LIB) $(LINK) -lsim $(GSL_LIB)
 
 test_abc_example.sqlite: test_es_abc abc_ebola_sim.json
+	make cleanwork
 	./$^ --process
 
 FORCE:
 
 work%.log: test_es_abc abc_ebola_sim.json FORCE | test_abc_example.sqlite
-	./$(filter-out FORCE,$^) --simulate -n 100 >> $@
+	./$(filter-out FORCE,$^) --simulate -n 82500 >> $@
 
 THREADS = 6
 SEQ = $(strip $(shell seq $(THREADS)))
 LOGS = $(patsubst %,work%.log,$(SEQ))
+
+network_filenames.txt: $(wildcard networks/*.csv) | networks
+	cd $|; ls *.csv > ../$@
 
 dowork: $(LOGS)
 	sqlite3 test_abc_example.sqlite 'select count(*) from job where status="Q";'
 	wc -l *.log
 
 cleanwork:
-	rm test_abc_example.sqlite
-	rm $(LOGS)
+	rm -f test_abc_example.sqlite
+	rm -f $(LOGS)
 
 test_result.csv: test_es.o test_net.csv
 	./$^ > $@

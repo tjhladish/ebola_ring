@@ -18,12 +18,20 @@ int main(int /* argc */, char* argv[]) {
     0.5, // trace probability
     0.7, // background efficacy
     EbolaSim::rcoverage(0.7, sharedrng),  // background coverage
-    sharedrng
+    sharedrng,
+    2.0,
+    6.0
   };
 
   EbolaSim es(ps);
   cout << EbolaSim::outhead << endl;
   es.run(es.defaultEvents());
   cout << es;
+  cout << endl;
+  cout << es.count_at(true, true, 0) << endl;
+  cout << es.count_at(false, true, 0) << endl;
+  cout << es.count_at(true, false, 0) << endl;
+  cout << es.count_at(false, false, 0) << endl;
+
   return 0;
 }
