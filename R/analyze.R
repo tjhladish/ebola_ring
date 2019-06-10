@@ -22,6 +22,29 @@ pars <- data.table(
 dbDisconnect(db)
 pars[, replicate := net_rep*10 + epi_rep ]
 
+thing <- pars[,{
+  res <- hist(realized_coverage, breaks = seq(0,1,by=0.2), plot=F)
+  .(ulim=tail(res$breaks, -1), count=res$counts)
+}, keyby=.(bveff, trace_prob, exp_sd, vaccine_delay)]
+
+thing[, share := count/sum(count), by=key(thing) ]
+
+ggplot(thing) + aes(
+  x=bveff, y=share, fill=as.character(ulim)
+) + facet_grid(trace_prob + vaccine_delay ~ exp_sd, labeller = labeller(
+  exp_sd=function(sd) c(`3`="R0 = 1",`4`="R0 = 1.5",`5`="R0 = 2"),
+  trace_prob=function(p) {sprintf("contact tracing\np = %i%%", as.numeric(p)*100)},
+  vaccine_delay=function(d) {sprintf("notification\nto vaccination\n%s days", d)}
+)) + geom_col() +
+  theme_minimal() +
+  scale_y_continuous("Share of clusters observed by background coverage") +
+  scale_x_continuous("Vaccine efficacy", breaks=seq(0,1,by=0.2)) +
+  scale_fill_brewer(
+    "Vaccine\nCoverage\nCategory",
+    labels=function(b) sprintf("%i-%i%%",as.integer(100*(as.numeric(b)-0.2)), as.integer(100*as.numeric(b))),
+    palette="Greens"
+  )
+
 coverage_distro <- ggplot(pars[bveff %in% seq(0,1,by=0.2)]) +
   aes(realized_coverage, stat(density), color=factor(exp_sd), linetype=factor(trace_prob)) +
   facet_grid(. ~ bveff, labeller = labeller(.cols = function(b) {
