@@ -5,3 +5,6 @@ ebola_sim
 tests/*.o
 .Rproj.user
 tests/networks/*
+tests/*.log
+tests/*.sqlite
+R/*.png
