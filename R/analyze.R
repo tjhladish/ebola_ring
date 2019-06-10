@@ -1,9 +1,9 @@
 pkgs <- lapply(c("data.table","RSQLite", "jsonlite", "cowplot"), require, character.only=T)
 
-.args <- c("test_abc_example.sqlite", paste0("work",1:6,".log"), "test_eff_calc.png")
+.args <- c("../tests/test_abc_example.sqlite", paste0("../tests/work",1:6,".log"), "test_eff_calc.png")
 .args <- commandArgs(trailingOnly = T)
 
-abcref <- jsonlite::read_json("abc_ebola_sim.json")
+abcref <- jsonlite::read_json("../tests/abc_ebola_sim.json")
 
 extractcolname <- function(el) if(is.null(el$short_name)) el$name else el$short_name
 
@@ -22,13 +22,23 @@ pars <- data.table(
 dbDisconnect(db)
 pars[, replicate := net_rep*10 + epi_rep ]
 
-coverage_distro <- ggplot(pars[bveff %in% seq(0,1,by=0.2)]) + aes(realized_coverage, stat(density), color=factor(exp_sd), linetype=factor(trace_prob)) +
-  facet_grid(. ~ bveff) + geom_freqpoly(bins=100, alpha=0.5) + theme_minimal() +
-  scale_color_manual("R0 roughly", labels=c(`3`=1,`4`=1.5,`5`=2), values=c(`3`="black",`4`="dodgerblue",`5`="firebrick")) +
-  scale_x_continuous("Sampled Coverage") +
-  scale_y_continuous("Density") +
+coverage_distro <- ggplot(pars[bveff %in% seq(0,1,by=0.2)]) +
+  aes(realized_coverage, stat(density), color=factor(exp_sd), linetype=factor(trace_prob)) +
+  facet_grid(. ~ bveff, labeller = labeller(.cols = function(b) {
+    res <- paste0(c("\n","\n","Vaccine Efficacy\n","\n","\n"), sprintf("%i%%", as.numeric(b)*100))
+    res
+  })) +
+  geom_freqpoly(bins=100, alpha=0.5) + theme_minimal() +
+  scale_color_manual(expression("approx. "*R[0]), labels=c(`3`=1,`4`=1.5,`5`=2), values=c(`3`="black",`4`="dodgerblue",`5`="firebrick")) +
+  scale_x_continuous("Coverage in Area of Observed Case") +
+  scale_y_continuous("Relative Likelihood") +
   scale_linetype("Contact\nTracing\nProbability") +
-  coord_cartesian(xlim=c(0.1,0.9))
+  coord_cartesian(xlim=c(0.1,0.9)) + theme(
+    legend.position = c(0.01, .99), legend.justification = c(0, 1),
+    legend.direction = "horizontal"
+  )
+
+save_plot("coverage_bias.png", coverage_distro, ncol = 5, base_width = 1.5)
 
 # logs <- grep("log$", .args, value=T)
 # 
@@ -48,12 +58,12 @@ coverage_distro <- ggplot(pars[bveff %in% seq(0,1,by=0.2)]) + aes(realized_cover
 id.vars <- c("serial","bveff","trace_prob","exp_sd")
 
 testpos <- melt.data.table(
-  pars[,.(vaccine=vaccine_pos_0, none=unvax_pos_0), by=id.vars],
-  id.vars = id.vars, variable.name = "background", value.name = "N"
+  pars[,.(vaccine=vaccine_pos_0, none=unvax_pos_0, coverage=realized_coverage), by=id.vars],
+  id.vars = c(id.vars,"coverage"), variable.name = "background", value.name = "N"
 )[, outcome := "positive" ]
 testneg <- melt.data.table(
-  pars[,.(vaccine=vaccine_neg_0, none=unvax_neg_0), by=id.vars],
-  id.vars = id.vars, variable.name = "background", value.name = "N"
+  pars[,.(vaccine=vaccine_neg_0, none=unvax_neg_0, coverage=realized_coverage), by=id.vars],
+  id.vars = c(id.vars,"coverage"), variable.name = "background", value.name = "N"
 )[, outcome := "negative" ]
 
 # testpos <- ref.dt[
@@ -65,12 +75,56 @@ testneg <- melt.data.table(
 
 results <- dcast(
   rbind(testpos, testneg),
-  serial + bveff + trace_prob + exp_sd ~ background + outcome,
+  serial + bveff + trace_prob + exp_sd + coverage ~ background + outcome,
   value.var = "N", fill = 0
-)
+)[!(vaccine_negative+vaccine_positive+none_negative+none_positive == 0)]
+
+# ggplot(
+#   melt(results[exp_sd==3 & bveff==0.3,.SD,.SDcols=-c(2,4)], id.vars=c("serial","coverage","trace_prob"))
+# ) + facet_grid(variable ~ trace_prob, scales = "free") + aes(x=value) + geom_histogram(bins=100) +
+#   coord_cartesian(xlim=c(0,15))
+
+samp <- results[exp_sd==3, {
+  set.seed(1L)
+  randomize <- sample(.N, replace = F)
+  res <- .SD[randomize]
+  alt <- lapply(res, cumsum)
+  names(alt) <- paste0("c.", names(alt))
+  c(res, alt, .(clusters=1:.N))
+}, by=.(bveff, trace_prob, exp_sd), .SDcols=-c("coverage", "serial")]
+
+slice <- samp[,c(.SD,.(neg_rate=seq(.2,.8,by=.2))),by=.(bveff,trace_prob,exp_sd,clusters)]
+
+slice[, RR := (
+    c.vaccine_positive/(c.vaccine_positive+round(c.vaccine_negative*neg_rate))
+  )/(
+    c.none_positive/(c.none_positive+round(c.none_negative*neg_rate))
+  )
+]
+
+ggplot(slice[between(clusters,10,100) & trace_prob %in% c(.5,.7,.9, 1)]) + aes(clusters/10, 1-RR, color="simulated", alpha=neg_rate, group=neg_rate) + 
+  facet_grid(trace_prob ~ bveff, labeller = labeller(.cols = function(b) {
+    sprintf("%i%%", as.numeric(b)*100)
+  })) +
+  geom_hline(aes(yintercept=1-RR, color="asymptote"), slice[clusters > 2000 & trace_prob %in% c(.5,.7,.9, 1), .(RR=mean(RR)), by=.(bveff, trace_prob, neg_rate)]) +
+  geom_hline(aes(yintercept=bveff, color="actual")) +
+  geom_line() + theme_minimal() + labs(
+    y=expression('Measured '*v[eff]*' = 1-RR'),
+    x="10s of clusters observed",
+    color="Efficacy\nMeasure"
+  ) + ggtitle("Simulated Vaccine Efficacy") +
+  scale_alpha(breaks=c(.2,.4,.6,.8)) + scale_x_continuous(breaks=seq(2,10,by=2)) +
+  scale_color_manual(
+    labels=c(actual="Reference", simulated="Measured", asymptote="Measured\nafter 2k clusters"),
+    values=c(actual="black", simulated="firebrick", asymptote="dodgerblue")
+  ) + coord_cartesian(ylim=c(-0.5,1)) + theme(
+    panel.grid = element_line(),
+    panel.grid.minor.x = element_blank()
+  )
+
+
 
 samp <- rbindlist(lapply(1:200, function(sid, negattackrate, maxsamples=100) results[, {
-  set.seed(sid)
   ord <- order(sample(.N, maxsamples))
   # A = vac, +; B = no, +
   # C = vac, -; D = no, -
@@ -94,7 +148,7 @@ pwr <- samp[,.(
   keyby=.(bveff, trace_prob, exp_sd, clusters)
 ]
 
-ggplot(pwr[bveff !=0 & bveff!=1]) + aes(x=clusters, color=factor(exp_sd)) +
+ggplot(pwr[bveff !=0 & bveff!=1][]) + aes(x=clusters, color=factor(exp_sd)) +
   facet_grid(trace_prob ~ bveff) +
   geom_line(aes(y=power0, linetype="vs 0")) +
   geom_line(aes(y=power50, linetype="vs 0.5")) +

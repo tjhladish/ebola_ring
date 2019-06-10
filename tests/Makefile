@@ -11,7 +11,7 @@ ABC_PATH = $(WORKSPACE)/AbcSmc
 SQL_PATH ?= $(ABC_PATH)/sqdb
 EPI_PATH = $(WORKSPACE)/EpiFire/src
 ABC_LIB = -L$(ABC_PATH) -labc -ljsoncpp -lsqdb $(ABC_PATH)/sqlite3.o
-GSL_LIB = -lm -lgsl -lgslcblas -pthread -Wl,--no-as-needed -ldl
+GSL_LIB = -lm -lgsl -lgslcblas -pthread
 
 #INCLUDE = -I$(ABC_PATH) -I$(GSL_PATH)/include/ -I$(EPI_PATH)
 INCLUDE = -I$(EPI_PATH)
