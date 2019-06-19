@@ -10,7 +10,7 @@ GSL_PATH ?= $(ABC_PATH)/gsl_local
 SQL_PATH ?= $(ABC_PATH)/sqdb
 
 EPI_PATH = $(WORKSPACE)/EpiFire/src
-ABC_LIB = -L$(ABC_PATH) -labc -ljsoncpp -lsqdb $(ABC_PATH)/sqlite3.o
+ABC_LIB = -L$(ABC_PATH) -labc -ljsoncpp -Wl,--no-as-needed -ldl -lsqdb $(ABC_PATH)/sqlite3.o
 GSL_LIB = -lm -L$(GSL_PATH)/lib/ -lgsl -lgslcblas -pthread -Wl,--no-as-needed -ldl
 
 INCLUDE = -I$(ABC_PATH) -I$(GSL_PATH)/include/ -I$(EPI_PATH)

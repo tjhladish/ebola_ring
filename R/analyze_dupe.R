@@ -1,9 +1,9 @@
 pkgs <- lapply(c("data.table","RSQLite", "jsonlite", "cowplot"), require, character.only=T)
 
-.args <- c("../tests/test_abc_example.sqlite", paste0("../tests/work",1:6,".log"), "test_eff_calc.png")
+.args <- c("../tests/test_abc_example_nonleaky.sqlite", paste0("../tests/work",1:6,".log"), "test_eff_calc.png")
 .args <- commandArgs(trailingOnly = T)
 
-abcref <- jsonlite::read_json("../tests/abc_ebola_sim.json")
+abcref <- jsonlite::read_json("../tests/abc_ebola_sim_nonleaky.json")
 
 extractcolname <- function(el) if(is.null(el$short_name)) el$name else el$short_name
 
@@ -39,22 +39,33 @@ pars[, replicate := net_rep*10 + epi_rep ]
 
 id.vars <- c("serial","bveff","trace_prob","exp_sd", "vaccine_delay")
 
+# some proportion of unvaxed actually vaccinated
+# P(that situation) = (coverage)/(1-coverage)*(1-eff)/eff
+
 testpos <- melt.data.table(
-  pars[,.(
-    vaccine = c(vaccine_pos_0, vaccine_pos_6),
-    none    = c(unvax_pos_0, unvax_pos_6),
+  pars[,{
+  correct_p <- rep(1-realized_coverage/bveff, 2)
+  correct <- round(c(unvax_pos_0,unvax_pos_6)*correct_p)
+  mis <- c(unvax_pos_0, unvax_pos_6)-correct
+  .(
+    vaccine = c(vaccine_pos_0, vaccine_pos_6)+mis,
+    none    = correct,
     coverage=c(realized_coverage, realized_coverage),
     window=c(rep(0,.N), rep(6,.N))
-  ), by=id.vars],
+  )}, by=id.vars],
   id.vars = c(id.vars,"coverage", "window"), variable.name = "background", value.name = "N"
 )[, outcome := "positive" ]
 testneg <- melt.data.table(
-  pars[,.(
-    vaccine= c(vaccine_neg_0,vaccine_neg_6),
-    none=c(unvax_neg_0,unvax_neg_6),
+  pars[,{
+    correct_p <- rep(1-realized_coverage/bveff, 2)
+    correct <- round(c(unvax_neg_0,unvax_neg_6)*correct_p)
+    mis <- c(unvax_neg_0, unvax_neg_6)-correct
+    .(
+    vaccine= c(vaccine_neg_0,vaccine_neg_6)+mis,
+    none=correct,
     coverage=c(realized_coverage, realized_coverage),
     window=c(rep(0,.N), rep(6,.N))
-  ), by=id.vars],
+  )}, by=id.vars],
   id.vars = c(id.vars,"coverage", "window"), variable.name = "background", value.name = "N"
 )[, outcome := "negative" ]
 
@@ -99,7 +110,7 @@ samp[, RR := (
   )
 ]
 
-subview <- samp[trace_prob %in% c(.5,.7,.9, 1) & window == 0 & bveff %in% c(0,.3,.6,.9) ]
+subview <- samp[trace_prob %in% c(.4,.6,.8, 1) & window == 0 & bveff != 1 ]
 
 bnd <- subview[,.(
   lo.RR = quantile(RR, probs = .25, na.rm = T),
@@ -150,8 +161,8 @@ effplot2 <- ggplot(bnd[between(clusters,10,100)]) +
     panel.grid.minor.x = element_blank()
   )
 
-save_plot("sim_vax_eff_lines.png", effplot1, ncol = 4, nrow = 4, base_height = 4)
-save_plot("sim_vax_eff_ribbon.png", effplot2, ncol = 4, nrow = 4, base_height = 4)
+save_plot("nonleaky_sim_vax_eff_lines.png", effplot1, ncol = 4, nrow = 4, base_height = 4)
+save_plot("nonleaky_sim_vax_eff_ribbon.png", effplot2, ncol = 9, nrow = 4, base_height = 4)
 
 samp <- rbindlist(lapply(1:200, function(sid, negattackrate, maxsamples=100) results[, {
   ord <- order(sample(.N, maxsamples))

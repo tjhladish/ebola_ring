@@ -2,7 +2,7 @@
 
     "noise"                     : "MULTIVARIATE",
 
-    "database_filename"             : "test_abc_example.sqlite",
+    "database_filename"             : "test_abc_example_nonleaky.sqlite",
 
     "parameters" : [
         {"name"       : "net_rep",
@@ -28,9 +28,9 @@
         {"name"       : "trace_prob",
          "dist_type"  : "PSEUDO",
          "num_type"   : "FLOAT",
-         "par1"       : 0.5,
+         "par1"       : 0.4,
          "par2"       : 1.0,
-         "step"       : 0.1},
+         "step"       : 0.2},
 
        {"name"       : "exp_sd",
         "dist_type"  : "PSEUDO",
@@ -44,7 +44,14 @@
         "num_type"   : "FLOAT",
         "par1"       : 2.0,
         "par2"       : 6.0,
-        "step"       : 2.0}
+        "step"       : 2.0},
+
+        {"name"       : "back_vac_mech",
+         "dist_type"  : "PSEUDO",
+         "num_type"   : "FLOAT",
+         "par1"       : 1.0,
+         "par2"       : 1.0,
+         "step"       : 1.0}
     ],
 
     "metrics" : [

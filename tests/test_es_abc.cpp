@@ -7,13 +7,23 @@ inline double gamma_alpha(double mean, double sd) { return pow(mean/sd, 2); }
 inline double gamma_beta(double mean, double sd)  { return pow(sd,2)/mean; }
 inline function<double(mt19937&)> dgamma(double mn, double sd) { return gamma_distribution<double>(gamma_alpha(mn,sd), gamma_beta(mn,sd)); }
 
+enum VaccineMechanism {
+  LEAKY,
+  NONLEAKY,
+  N_VACMECHS
+};
+
 vector<double> simulator(vector<double> args, const unsigned long int rng_seed, const unsigned long int /* serial */, const ABC::MPI_par* /*mp*/) {
   const int net_replicate   = (int) args[0];
   //const int epi_replicate   = (int) args[1];
-  const double back_vac_eff = args[2];
   const double trace_prob   = args[3];
   const double exp_sd   = args[4];
   const double vaccine_delay   = args[5];
+  const VaccineMechanism back_vac_mech   = static_cast<VaccineMechanism>(args[6]);
+  const bool useBias = args[7] == 1.0;
+  // if back_vac_mech == 0, leaky
+  // if back_vac_mech == 1, non-leaky
+  const double back_vac_eff = back_vac_mech == LEAKY ? args[2] : 1.0;
 
   Network n(Network::Undirected);
   string network_dir      = "./networks/";
@@ -37,7 +47,9 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
 // x = (-b +/- sqrt(b^2-4ac))/2a = 1/eff +/- sqrt((1/eff)^2-(2/eff - 1)y)
 // at the asymptotic values of y (0,1), it's clear that the - term is correct
 
-  double background_coverage = EbolaSim::rcoverage(back_vac_eff, globalrng);
+  double background_coverage = useBias ? EbolaSim::rcoverage(back_vac_eff, globalrng) : uniform_real_distribution<double>(0,1)(globalrng);
+
+  if (back_vac_mech == NONLEAKY) background_coverage *= back_vac_eff;
 
   SimPars ps = {
     &n, {

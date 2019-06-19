@@ -10,7 +10,7 @@ ABC_PATH = $(WORKSPACE)/AbcSmc
 
 SQL_PATH ?= $(ABC_PATH)/sqdb
 EPI_PATH = $(WORKSPACE)/EpiFire/src
-ABC_LIB = -L$(ABC_PATH) -labc -ljsoncpp -lsqdb $(ABC_PATH)/sqlite3.o
+ABC_LIB = -L$(ABC_PATH) -labc -ljsoncpp -lsqdb -Wl,--no-as-needed -ldl $(ABC_PATH)/sqlite3.o
 GSL_LIB = -lm -lgsl -lgslcblas -pthread
 
 #INCLUDE = -I$(ABC_PATH) -I$(GSL_PATH)/include/ -I$(EPI_PATH)
@@ -46,20 +46,28 @@ test_abc_example.sqlite: test_es_abc abc_ebola_sim.json
 	make cleanwork
 	./$^ --process
 
-FORCE:
+test_abc_example_nonleaky.sqlite: test_es_abc abc_ebola_sim_nonleaky.json
+	./$^ --process
 
-work%.log: test_es_abc abc_ebola_sim.json FORCE | test_abc_example.sqlite
-	./$(filter-out FORCE,$^) --simulate -n 82500 >> $@
+test_abc_example_nobias.sqlite: test_es_abc abc_ebola_sim_nobias.json
+	./$^ --process
+
+FORCE:
 
 THREADS = 6
 SEQ = $(strip $(shell seq $(THREADS)))
 LOGS = $(patsubst %,work%.log,$(SEQ))
 
+NPER = $(shell sqlite3 test_abc_example_nobias.sqlite 'select count(*)/$(THREADS) from par;')
+
+work%.log: test_es_abc abc_ebola_sim_nobias.json FORCE | test_abc_example_nobias.sqlite
+	./$(filter-out FORCE,$^) --simulate -n $(NPER) >> $@
+
 network_filenames.txt: $(wildcard networks/*.csv) | networks
 	cd $|; ls *.csv > ../$@
 
 dowork: $(LOGS)
-	sqlite3 test_abc_example.sqlite 'select count(*) from job where status="Q";'
+	sqlite3 test_abc_example_nobias.sqlite 'select count(*) from job where status="Q";'
 	wc -l *.log
 
 cleanwork:
