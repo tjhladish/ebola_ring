@@ -14,6 +14,8 @@ enum VaccineMechanism {
 };
 
 vector<double> simulator(vector<double> args, const unsigned long int rng_seed, const unsigned long int /* serial */, const ABC::MPI_par* /*mp*/) {
+  mt19937 globalrng(rng_seed);
+  
   const int net_replicate   = (int) args[0];
   //const int epi_replicate   = (int) args[1];
   const double trace_prob   = args[3];
@@ -23,7 +25,13 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
   const bool useBias = args[7] == 1.0;
   // if back_vac_mech == 0, leaky
   // if back_vac_mech == 1, non-leaky
+  // use the efficacious efficacy for bias whatever the vaccine mechanism
+  double background_coverage = useBias ? EbolaSim::rcoverage(args[2], globalrng) : uniform_real_distribution<double>(0,1)(globalrng);
+  // if the mechanism is nonleaky, deprecate the background coverage to only the efficaciously vaccinated individuals
+  if (back_vac_mech == NONLEAKY) background_coverage *= args[2];
+
   const double back_vac_eff = back_vac_mech == LEAKY ? args[2] : 1.0;
+
 
   Network n(Network::Undirected);
   string network_dir      = "./networks/";
@@ -31,8 +39,6 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
 //    cerr << "Line " << net_replicate << " was " << network_filename << endl;
   n.read_edgelist(network_dir + network_filename, ',');
   assert(n.size() > 0);
-
-  mt19937 globalrng(rng_seed);
 
 // backkground coverage calculation:
 // P(coverage=X|infection) = P(infection|coverage=X)P(coverage=X)/P(infection)
@@ -46,10 +52,6 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
 // which has a quadratic rule soln
 // x = (-b +/- sqrt(b^2-4ac))/2a = 1/eff +/- sqrt((1/eff)^2-(2/eff - 1)y)
 // at the asymptotic values of y (0,1), it's clear that the - term is correct
-
-  double background_coverage = useBias ? EbolaSim::rcoverage(back_vac_eff, globalrng) : uniform_real_distribution<double>(0,1)(globalrng);
-
-  if (back_vac_mech == NONLEAKY) background_coverage *= back_vac_eff;
 
   SimPars ps = {
     &n, {
