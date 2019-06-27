@@ -1,115 +1,30 @@
 pkgs <- lapply(c("data.table","RSQLite", "jsonlite", "cowplot"), require, character.only=T)
 
-.args <- c("../tests/test_abc_example_nobias.sqlite", "network_properties.rds", "test_eff_calc.png")
+.args <- c("digested_nobias.rds", "001_permutation_nobias.rds")
 .args <- commandArgs(trailingOnly = T)
 
-abcref <- jsonlite::read_json("../tests/abc_ebola_sim_nobias.json")
-net.dt <- readRDS(.args[2])
+results <- readRDS(.args[1])
 
-extractcolname <- function(el) if(is.null(el$short_name)) el$name else el$short_name
+tarfile <- tail(.args, 1)
 
-parcols <- c("serial", sapply(abcref$parameters, extractcolname))
-metcols <- sapply(abcref$metrics, extractcolname)
+id.vars <- key(results)
 
-selcols <- c(parcols, metcols)
+sid <- as.integer(gsub("^(\\d+)_.+$", "\\1", tarfile))
 
-drv <- dbDriver("SQLite")
-db <- dbConnect(drv, .args[1], flags=SQLITE_RO)
-pars <- data.table(
-  dbGetQuery(db,
-    sprintf("SELECT %s FROM par JOIN met USING(serial) JOIN job USING(SERIAL) WHERE status=='D';", paste0(selcols, collapse = ", "))
-  )
-)[net.dt, on=.(net_rep=netid)]
-dbDisconnect(db)
-pars[, replicate := net_rep*10 + epi_rep ]
-
-ggplot(pars) + aes(x=realized_coverage) + facet_grid(bveff ~ use_bias, scales = "free_y") + geom_histogram()
-
-# thing <- pars[back_vac_mech==1.0 & bveff != 0 & bveff != 1, .(reassignp=(1-realized_coverage/bveff)/(1-realized_coverage), bveff, realized_coverage)]
-# ggplot(thing) + aes(realized_coverage, reassignp) + facet_grid(. ~ bveff) + geom_point() + theme_minimal()
-
-# logs <- grep("log$", .args, value=T)
-# 
-# aggsims <- rbindlist(lapply(
-#   logs,
-#   function(log, ...) {
-#     fread(log, ...)[level == 1 | !is.nan(onset), {
-#       rvtm <- if(!all(is.nan(ring))) min(ring, na.rm = T) else 0
-#       .SD[, .N, keyby=.(background, onset=round(onset-rvtm))]
-#     }, by=serial]
-#   },
-#   col.names = c("serial","id","level","background","trace","ring","onset")
-# ))
-# 
-# ref.dt <- aggsims[pars[,.(epi_rep,bveff,trace_prob,exp_sd,realized_coverage,count_pre_vax),by=serial], on=.(serial)]
-
-id.vars <- c("serial","bveff","trace_prob", "exp_sd", "vaccine_delay", "back_vac_mech", "use_bias", "partition")
-
-# some proportion of unvaxed actually vaccinated
-# P(that situation) = (coverage)/(1-coverage)*(1-eff)/eff
-
-testpos <- melt.data.table(
-  pars[,{
-  correct_fraction <- if (back_vac_mech == 1) rep((1-realized_coverage/bveff)/(1-realized_coverage), 2) else 1
-  correct <- round(c(unvax_pos_0,unvax_pos_6)*correct_fraction)
-  mis <- c(unvax_pos_0, unvax_pos_6)-correct
-  .(
-    vaccine = c(vaccine_pos_0, vaccine_pos_6)+mis,
-    none    = correct,
-    coverage=c(realized_coverage, realized_coverage),
-    window=c(rep(0,.N), rep(6,.N))
-  )}, by=id.vars],
-  id.vars = c(id.vars,"coverage", "window"), variable.name = "background", value.name = "N"
-)[, outcome := "positive" ]
-testneg <- melt.data.table(
-  pars[,{
-    correct_fraction <- if (back_vac_mech == 1) rep((1-realized_coverage/bveff)/(1-realized_coverage), 2) else 1
-    correct <- round(c(unvax_neg_0,unvax_neg_6)*correct_fraction)
-    mis <- c(unvax_neg_0, unvax_neg_6)-correct
-    .(
-    vaccine= c(vaccine_neg_0,vaccine_neg_6)+mis,
-    none=correct,
-    coverage=c(realized_coverage, realized_coverage),
-    window=c(rep(0,.N), rep(6,.N))
-  )}, by=id.vars],
-  id.vars = c(id.vars,"coverage", "window"), variable.name = "background", value.name = "N"
-)[, outcome := "negative" ]
-
-# testpos <- ref.dt[
-#   !is.nan(onset) & onset <= 0,
-#   .(N=sum(N)),
-#   by = .(serial, background=c("none","vaccine")[background+1], bveff, trace_prob, exp_sd)
-# ][, outcome := "positive"] 
-# testneg <- ref.dt[is.nan(onset),N,by=.(serial, background=c("none","vaccine")[background+1], bveff, trace_prob, exp_sd)][, outcome := "negative"]
-
-fm <- as.formula(
-  sprintf("%s ~ %s",paste(c(id.vars,"coverage", "window"), collapse=" + "),paste(c("background", "outcome"), collapse=" + "))
-)
-  
- 
-results <- dcast(
-  rbind(testpos, testneg),
-  fm,
-  value.var = "N", fill = 0
-)[!(vaccine_negative+vaccine_positive+none_negative+none_positive == 0)]
-
-rm(testpos, testneg)
-rm(pars)
-
-# ggplot(
-#   melt(results[exp_sd==3 & bveff==0.3,.SD,.SDcols=-c(2,4)], id.vars=c("serial","coverage","trace_prob"))
-# ) + facet_grid(variable ~ trace_prob, scales = "free") + aes(x=value) + geom_histogram(bins=100) +
-#   coord_cartesian(xlim=c(0,15))
-
-samp <- rbindlist(lapply(1:100, function(sid) results[exp_sd==3 & window == 0, {
+samp <- results[, {
   set.seed(sid)
   randomize <- sample(.N, replace = F)
   res <- .SD[randomize]
   alt <- lapply(res, cumsum)
   names(alt) <- paste0("c.", names(alt))
   c(res, alt, .(clusters=1:.N))
-}, by=c(tail(id.vars,-1)), .SDcols=-c("coverage", "serial")][, sample_id := sid ]
-))[, neg_rate := 0.2 ]
+}, by=c(tail(id.vars,-1)), .SDcols=-c("coverage", "serial")][,
+  sample_id := sid
+][,
+  neg_rate := 0.2
+]
+
+#
 
 # so neg rate doesn't seem to matter
 # slice <- samp[,c(.SD,.(neg_rate=seq(.2,.8,by=.2))),by=.(bveff,trace_prob,exp_sd,clusters)]
