@@ -2,7 +2,7 @@
 
     "noise"                     : "MULTIVARIATE",
 
-    "database_filename"             : "test_abc_example_nobias.sqlite",
+    "database_filename"             : "abc_ebola_km.sqlite",
 
     "parameters" : [
         {"name"       : "net_rep",
@@ -22,8 +22,8 @@
          "dist_type"  : "PSEUDO",
          "num_type"   : "FLOAT",
          "par1"       : 0.0,
-         "par2"       : 1.0,
-         "step"       : 0.1},
+         "par2"       : 0.75,
+         "step"       : 0.25},
 
         {"name"       : "trace_prob",
          "dist_type"  : "PSEUDO",
@@ -54,16 +54,20 @@
          {"name"       : "coverage",
           "dist_type"  : "PSEUDO",
           "num_type"   : "FLOAT",
-          "par1"       : 0.2,
-          "par2"       : 0.8,
-          "step" : 0.2}
+          "par1"       : 0.25,
+          "par2"       : 0.75,
+          "step" : 0.25},
+
+        {"name"       : "netsrc",
+         "dist_type"  : "PSEUDO",
+         "num_type"   : "FLOAT",
+         "par1"       : 0.0,
+         "par2"       : 2.0,
+         "step" : 1.0}
 
     ],
 
     "metrics" : [
-        {"name"     : "realized_coverage",
-         "num_type" : "FLOAT",
-         "value"    : 0},
 
         {"name"     : "count_pre_vax",
          "num_type" : "FLOAT",

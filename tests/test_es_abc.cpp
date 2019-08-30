@@ -13,75 +13,113 @@ enum VaccineMechanism {
   N_VACMECHS
 };
 
-vector<double> simulator(vector<double> args, const unsigned long int rng_seed, const unsigned long int /* serial */, const ABC::MPI_par* /*mp*/) {
-  mt19937 globalrng(rng_seed);
-  
+vector<double> simulator(vector<double> args, const unsigned long int /* rng_seed */, const unsigned long int serial, const ABC::MPI_par* /*mp*/) {
+
+  std::uniform_int_distribution<int> reseed(0,1000);
+  std::uniform_real_distribution<double> runif(0,1);
   const int net_replicate   = (int) args[0];
-  //const int epi_replicate   = (int) args[1];
+  mt19937 globalrng(net_replicate);
+  const int epi_replicate   = (int) args[1];
+
+  globalrng.seed(reseed(globalrng)*(epi_replicate+1));
+
+  //const double background_coverage = EbolaSim::rcoverage(args[2], globalrng);
+
+  globalrng.seed(epi_replicate);
+
   const double trace_prob   = args[3];
   const double exp_sd   = args[4];
   const double vaccine_delay   = args[5];
   const VaccineMechanism back_vac_mech   = static_cast<VaccineMechanism>(args[6]);
-  const bool useBias = args[7] == 1.0;
+  const double background_coverage = args[7];
+  const int networksdir = static_cast<int>(args[8]);
   // if back_vac_mech == 0, leaky
   // if back_vac_mech == 1, non-leaky
   // use the efficacious efficacy for bias whatever the vaccine mechanism
-  double background_coverage = useBias ? EbolaSim::rcoverage(args[2], globalrng) : uniform_real_distribution<double>(0,1)(globalrng);
+//  double background_coverage = useBias ? EbolaSim::rcoverage(args[2], globalrng) : uniform_real_distribution<double>(0,1)(globalrng);
+
   // if the mechanism is nonleaky, deprecate the background coverage to only the efficaciously vaccinated individuals
-  if (back_vac_mech == NONLEAKY) background_coverage *= args[2];
+  // if efficacy is zero, don't modify
+  // if (back_vac_mech == NONLEAKY and args[2] != 0.0) background_coverage *= args[2];
 
-  const double back_vac_eff = back_vac_mech == LEAKY ? args[2] : 1.0;
+  //const double back_vac_eff = (back_vac_mech == LEAKY or args[2] == 0.0) ? args[2] : 1.0;
+  const double back_vac_eff = args[2];
 
+  // at this point, all the first case to be potentially resisted;
+  // if it is, quick return, otherwise continue
+  bool first_vaccinated = runif(globalrng) < background_coverage;
+  bool first_resisted = runif(globalrng) < back_vac_eff;
+  vector<double> metrics;
+  if (!(first_vaccinated and first_resisted)) {
+    Network n(Network::Undirected);
+    string network_dir      = networksdir == 0 ? "./networks/" : networksdir == 1 ? "./declustered/" : "./reclustered/";
+    string network_filename = ABC::get_nth_line("network_filenames.txt", net_replicate);
+  //    cerr << "Line " << net_replicate << " was " << network_filename << endl;
+    n.read_edgelist(network_dir + network_filename, ',', false);
+    assert(n.size() > 0);
 
-  Network n(Network::Undirected);
-  string network_dir      = "./networks/";
-  string network_filename = ABC::get_nth_line("network_filenames.txt", net_replicate);
-//    cerr << "Line " << net_replicate << " was " << network_filename << endl;
-  n.read_edgelist(network_dir + network_filename, ',');
-  assert(n.size() > 0);
+  // backkground coverage calculation:
+  // P(coverage=X|infection) = P(infection|coverage=X)P(coverage=X)/P(infection)
+  // P(infection|coverage=X) = 1-P(!infection|coverage=X) = 1 - coverage*efficacy
+  // CDF(coverage=X|infection) = int_0^X (1-coverage*efficacy)P(coverage=X)/P(infection)
+  // assuming uniform probability of coverage (for initial pass)
+  // P(infection)/P(coverage=X) = C = int_0^1 1 - coverage*efficacy = 1-efficacy/2
+  // so:
+  // CDF(coverage=X) = (1/(1-efficacy/2))*x(1-(efficacy/2)*x)
+  // which means if y ~ U, then 0 = x^2 - (2/eff)*x + (2/eff - 1)y
+  // which has a quadratic rule soln
+  // x = (-b +/- sqrt(b^2-4ac))/2a = 1/eff +/- sqrt((1/eff)^2-(2/eff - 1)y)
+  // at the asymptotic values of y (0,1), it's clear that the - term is correct
 
-// backkground coverage calculation:
-// P(coverage=X|infection) = P(infection|coverage=X)P(coverage=X)/P(infection)
-// P(infection|coverage=X) = 1-P(!infection|coverage=X) = 1 - coverage*efficacy
-// CDF(coverage=X|infection) = int_0^X (1-coverage*efficacy)P(coverage=X)/P(infection)
-// assuming uniform probability of coverage (for initial pass)
-// P(infection)/P(coverage=X) = C = int_0^1 1 - coverage*efficacy = 1-efficacy/2
-// so:
-// CDF(coverage=X) = (1/(1-efficacy/2))*x(1-(efficacy/2)*x)
-// which means if y ~ U, then 0 = x^2 - (2/eff)*x + (2/eff - 1)y
-// which has a quadratic rule soln
-// x = (-b +/- sqrt(b^2-4ac))/2a = 1/eff +/- sqrt((1/eff)^2-(2/eff - 1)y)
-// at the asymptotic values of y (0,1), it's clear that the - term is correct
+    SimPars ps = {
+      &n, {
+        { EXPOSE,    dgamma(12, exp_sd) }, // time to exposure
+        { INCUBATE,  dgamma(9.9, 5.5) }, // time to infectiousness, given exposure
+        { RECOVER,   dgamma(8.9, 4) }, // time to removed, given exposure
+        { HOSPITAL,  dgamma(8, 6) }  // time to removed, given exposure
+      },
+      trace_prob,
+      back_vac_eff,
+      background_coverage,  // background coverage
+      globalrng,
+      vaccine_delay,
+      6.0, // offset look time limit
+      back_vac_mech
+    };
 
-  SimPars ps = {
-    &n, {
-      { EXPOSE,    dgamma(12, exp_sd) }, // time to exposure
-      { INCUBATE,  dgamma(9.9, 5.5) }, // time to infectiousness, given exposure
-      { RECOVER,   dgamma(8.9, 4) }, // time to removed, given exposure
-      { HOSPITAL,  dgamma(8, 6) }  // time to removed, given exposure
-    },
-    trace_prob,
-    back_vac_eff,
-    background_coverage,  // background coverage
-    globalrng,
-    vaccine_delay,
-    6.0 // offset look time limit
-  };
+    EbolaSim es(ps, first_vaccinated);
+    es.run(es.defaultEvents());
+  //  EbolaSim::dump(cout, es, to_string(serial));
+    metrics = {
+      // background_coverage,
+      es.countPreVax(), // INFECTIOUS AT VACCINE TIME
+      es.count_at(true, true, 0), // vaccinated, EBOV pos, at vaccine-time
+      es.count_at(true, false, 0), // vaccinated, EBOV neg, at vaccine-time
+      es.count_at(false, true, 0), // not, EBOV pos, at vaccine-time
+      es.count_at(false, false, 0)/*, // not, EBOV neg, at vaccine-time
+      es.count_at(true, true, 6), // vaccinated, EBOV pos, at vaccine-time
+      es.count_at(true, false, 6), // vaccinated, EBOV neg, at vaccine-time
+      es.count_at(false, true, 6), // not, EBOV pos, at vaccine-time
+      es.count_at(false, false, 6) // not, EBOV neg, at vaccine-time */
+    };
 
-  EbolaSim es(ps);
-  es.run(es.defaultEvents());
-//  EbolaSim::dump(cout, es, to_string(serial));
-  vector<double> metrics = {
-    background_coverage, es.countPreVax(),
-    es.count_at(true, true, 0), // vaccinated, EBOV pos, at vaccine-time
-    es.count_at(true, false, 0), // vaccinated, EBOV neg, at vaccine-time
-    es.count_at(false, true, 0), // not, EBOV pos, at vaccine-time
-    es.count_at(false, false, 0), // not, EBOV neg, at vaccine-time
-    es.count_at(true, true, 6), // vaccinated, EBOV pos, at vaccine-time
-    es.count_at(true, false, 6), // vaccinated, EBOV neg, at vaccine-time
-    es.count_at(false, true, 6), // not, EBOV pos, at vaccine-time
-    es.count_at(false, false, 6) // not, EBOV neg, at vaccine-time
-  };
+    EbolaSim::dump(cout, es, to_string(serial));
+
+  } else {
+    metrics = {
+      // background_coverage,
+      0, // INFECTIOUS AT VACCINE TIME
+      0, // vaccinated, EBOV pos, at vaccine-time
+      0, // vaccinated, EBOV neg, at vaccine-time
+      0, // not, EBOV pos, at vaccine-time
+      0 /*, // not, EBOV neg, at vaccine-time
+      es.count_at(true, true, 6), // vaccinated, EBOV pos, at vaccine-time
+      es.count_at(true, false, 6), // vaccinated, EBOV neg, at vaccine-time
+      es.count_at(false, true, 6), // not, EBOV pos, at vaccine-time
+      es.count_at(false, false, 6) // not, EBOV neg, at vaccine-time */
+    };
+  }
+
   return metrics;
 }
 
