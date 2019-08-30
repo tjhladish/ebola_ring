@@ -25,7 +25,7 @@ dbDisconnect(db)
 
 pars[, unvax_correct_prob := 1 ]
 pars[, coverage := realized_coverage ]
-pars[back_vac_mech == 1, coverage := realized_coverage/bveff ]
+pars[back_vac_mech == 1 & bveff != 0, coverage := realized_coverage/bveff ]
 pars[back_vac_mech == 1, unvax_correct_prob := (1-coverage)/(1-realized_coverage) ]
 
 pars$count_pre_vax <- NULL
@@ -33,7 +33,7 @@ pars$count_pre_vax <- NULL
 id.vars <- c("serial", "net_rep", "epi_rep", "bveff", "trace_prob", "exp_sd", "vaccine_delay", "back_vac_mech",
              "use_bias", "realized_coverage", "unvax_correct_prob", "coverage")
 
-mlt <- melt.data.table(pars, id.vars = id.vars)
+mlt <- melt.data.table(pars, id.vars = id.vars, value.name = "count")
 
 mlt[, group   := factor(gsub("^(vaccine|unvax)_.*$", "\\1", variable)) ]
 mlt[, outcome := factor(gsub("^.*_(pos|neg)_.*$", "\\1", variable)) ]
@@ -51,4 +51,6 @@ mlt$variable <- NULL
 #   value.var = "N", fill = 0
 # )
 
-saveRDS(mlt, tarfile)
+recast <- mlt[, dcast.data.table(.SD, ... ~ group + outcome, value.var = "count")][unvax_pos + vaccine_pos != 0]
+
+saveRDS(recast, tarfile)
