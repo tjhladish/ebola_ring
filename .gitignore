@@ -7,4 +7,5 @@ tests/*.o
 tests/networks/*
 tests/*.log
 tests/*.sqlite
+R/*.rds
 R/*.png

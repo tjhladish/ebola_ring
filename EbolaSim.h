@@ -56,6 +56,7 @@ struct SimPars {
   mt19937& sharedrng;
   double vaccine_delay;
   double rvsv_time_limit;
+  int mechanism; // 0 = leaky, 1 = all-or-nothing
 };
 
 class EbolaSim : public EventDrivenSim<EboEvent> {
@@ -78,7 +79,7 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
       fpair(VACCINATE,  &EbolaSim::vaccinate, this)
     };
 
-    EbolaSim(SimPars& pars) :
+    EbolaSim(SimPars& pars, bool first_vaccinated) :
     // assorted simple constructions
       rng(pars.sharedrng),
       community(IDCommunity(pars.net, pars.backgroundCoverage, pars.sharedrng)),
@@ -102,9 +103,24 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
           }
         );
         reset();
-        // special case for perfect efficacy; only way patient 0 can be infected
+
         // is if not covered
-        if (backgroundEff == 1.0) community.set_backgroundVax(index_case, false);
+
+        for (int i=0; i < pars.net->size(); i++) {
+          // always consume these random numbers, even if leaky
+          efficacious.push_back(runif() < backgroundEff);
+        }
+
+        community.set_backgroundVax(index_case, first_vaccinated);
+
+        if (pars.mechanism == 0) {
+          efficacious.clear();
+          efficacious.resize(pars.net->size(), true);
+        } else {
+          backgroundEff = 1.0;
+          efficacious[0] = false; // if covered, patient zero's vaccine must be in-efficacious
+        }
+
     }
 
     mt19937& rng; // random number generator
@@ -117,6 +133,7 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
     vector< vector<double> > event_log;
     int control_radius = 2;
     double traceProbability, backgroundEff;
+    vector< bool > efficacious;
 
     virtual void reset() {
       event_log.clear();
@@ -154,7 +171,7 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
     // not a const method, since modifies rng.
     bool isSusceptible(const Node* target, const double when) {
       if (target->get_state() == SUSCEPTIBLE) {
-        double beff = community.hasBackground(target) ? backgroundEff : 0.0;
+        double beff = community.hasBackground(target) and efficacious[target->get_id()] ? backgroundEff : 0.0;
         double reff = ringVaccineEff(when - community.ringVaccineTime(target));
         double efficacy = max(beff, reff);
         return efficacy < runif();

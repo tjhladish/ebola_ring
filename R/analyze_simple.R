@@ -1,90 +1,52 @@
 pkgs <- lapply(c("data.table"), require, character.only=T)
 
-.args <- c("digested_nobias.rds", "001.rds")
+.args <- c("digested_stratify.rds", "simple/01.rds")
 .args <- commandArgs(trailingOnly = T)
 
 recast <- readRDS(.args[1])
 
 tarfile <- tail(.args, 1)
 
-sid <- as.integer(gsub("^(\\d+)\\..+$", "\\1", tarfile))
+sid <- as.integer(gsub("^.+[^\\d](\\d+)\\..+$", "\\1", tarfile))
 
 recastzero <- recast[window == 0]
 
 kys <- setdiff(key(recastzero), c("serial","net_rep","epi_rep", "realized_coverage", "coverage", "unvax_correct_prob"))
 
-recruit_fraction <- 0.2
+permute_limit <- 500
 
-samp <- recastzero[bveff!=0, {
+samp <- recastzero[, {
   set.seed(sid)
-#  browser()
-  randomize <- sample(.N, size = 100, replace = F)
+  #  browser()
+  randomize <- sample(.N, min(.N, permute_limit), replace = F)
   res <- .SD[randomize]
   delres <- res[,{
-    update_neg <- rbinom(.N, unvax_neg, unvax_correct_prob)
-    update_pos <- rbinom(.N, unvax_pos, unvax_correct_prob)
-    del_neg <- unvax_neg - update_neg
-    del_pos <- unvax_pos - update_pos
+    # update_neg <- rbinom(.N, unvax_neg, unvax_correct_prob)
+    # update_pos <- rbinom(.N, unvax_pos, unvax_correct_prob)
+    # if(any(is.na(update_neg))) browser()
+    # if(back_vac_mech == 1 & all(update_pos == 0)) browser()
+    # del_neg <- unvax_neg - update_neg
+    # del_pos <- unvax_pos - update_pos
     .(
-      vaccine_pos = vaccine_pos + del_pos, unvax_pos = update_pos,
-      vaccine_neg = rbinom(.N, vaccine_neg + del_neg, recruit_fraction),
-      unvax_neg = rbinom(.N, update_neg, recruit_fraction),
+      vaccine_pos, unvax_pos,
+      vaccine_neg, unvax_neg,
       ring_size = vaccine_pos + unvax_pos + vaccine_neg + unvax_neg,
       case_count = vaccine_pos + unvax_pos
+      # vaccine_pos = vaccine_pos + del_pos, unvax_pos = update_pos,
+      # vaccine_neg = rbinom(.N, vaccine_neg + del_neg, recruit_fraction) + rbinom(.N, B, gencov),
+      # unvax_neg = rbinom(.N, update_neg, recruit_fraction) + rbinom(.N, B, 1-gencov),
+      # ring_size = vaccine_pos + unvax_pos + vaccine_neg + unvax_neg,
+      # case_count = vaccine_pos + unvax_pos
     )
   }]
-  c(delres,.(clusters=1:100))
+  delres[, cluster := 1:.N ]
+  delres
   # alt <- lapply(delres, cumsum)
   # names(alt) <- paste0("c.", names(alt))
   # c(res, alt, .(clusters=1:100))
-}, by=kys, .SDcols=-c("serial", "net_rep", "epi_rep")]
+}, keyby=kys, .SDcols=-c("serial", "net_rep", "epi_rep")]
 
-nile <- 3
-caseiles <- paste(c("min", "lo", "hi", "max"),"case",sep=".")
-
-samp[, c(caseiles) := {
-  rbindlist(lapply(1:.N, function(keepind) {
-    qs <- quantile(case_count[1:keepind], probs = (0:nile)/nile)
-    as.list(qs)
-  }))
-}, by=kys]
-
-RRcalc <- function(vac_pos, vac_neg, non_pos, non_neg) (
-  sum(vac_pos)/sum(vac_pos+vac_neg)
-)/(
-  sum(non_pos)/sum(non_pos+non_neg)
-)
-
-samp[, RR := sapply(1:.N, function(keepind) {
-    lo.lim <- lo.case[keepind]
-    hi.lim <- hi.case[keepind]
-    mx <- max.case[keepind]
-    cc <- case_count[1:keepind]
-    if (lo.lim != hi.lim) { # if we have clean thirds...
-      # analyze each group separately
-      grpids <- cut(cc, breaks = c(0, lo.lim, hi.lim, mx+1), labels = F)
-      grpone <- which(grpids == 1)
-      grptwo <- which(grpids == 2)
-      grpthr <- which(grpids == 3)
-      RR <- mean(c(
-        RRcalc(vaccine_pos[grpone], vaccine_neg[grpone], unvax_pos[grpone], unvax_neg[grpone]),
-        RRcalc(vaccine_pos[grptwo], vaccine_neg[grptwo], unvax_pos[grptwo], unvax_neg[grptwo]),
-        RRcalc(vaccine_pos[grpthr], vaccine_neg[grpthr], unvax_pos[grpthr], unvax_neg[grpthr])
-      ))
-    } else if (hi.lim != mx) { # else if we have some separation...
-      grpids <- cut(cc, breaks = c(0, hi.lim, mx+1), labels = F)
-      grpone <- which(grpids == 1)
-      grptwo <- which(grpids == 2)
-      # have a top and bottom group only
-      RR <- mean(c(
-        RRcalc(vaccine_pos[grpone], vaccine_neg[grpone], unvax_pos[grpone], unvax_neg[grpone]),
-        RRcalc(vaccine_pos[grptwo], vaccine_neg[grptwo], unvax_pos[grptwo], unvax_neg[grptwo])
-      ))
-    } else { # finally, if no separation...
-      # analyze as a single group
-      RR <- RRcalc(vaccine_pos[1:keepind], vaccine_neg[1:keepind], unvax_pos[1:keepind], unvax_neg[1:keepind])
-    }
-  }), by=kys]
+setkeyv(samp, c(kys, "cluster"))
 
 saveRDS(samp, tarfile)
 
