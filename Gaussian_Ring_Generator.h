@@ -15,17 +15,19 @@ using namespace std;
 struct NetParameters {
     NetParameters() {
         desired_levels = 3; // index case counts as a level
-        N = 1e3;
-        clusters = 200;
+        expected_N = 1e3;
+        clusters = 100;
+        hh_dist = discrete_distribution<int>();
         mean_deg = 16.0;
         cluster_kernel_sd = 0.01;
         wiring_kernel_sd = 0.094;
         seed = 0;
     }
 
-    NetParameters(int n, int c, double md, double ck_sd, double wk_sd, unsigned int s) {
-        N = n;
+    NetParameters(int n, int c, discrete_distribution<int> hhd, double md, double ck_sd, double wk_sd, unsigned int s) {
+        expected_N = n;
         clusters = c;
+        hh_dist = hhd;
         mean_deg = md;
         cluster_kernel_sd = ck_sd;
         wiring_kernel_sd = wk_sd;
@@ -33,8 +35,9 @@ struct NetParameters {
     }
 
     int desired_levels;
-    int N;
+    int expected_N;
     int clusters;
+    discrete_distribution<int> hh_dist;
     double mean_deg;
     double cluster_kernel_sd;
     double wiring_kernel_sd;
@@ -42,27 +45,34 @@ struct NetParameters {
 };
 
 
-vector<pair<double, double>> generate_spatial_distribution(int N, int clusters, double cluster_kernel_sd, mt19937& rng) {
-    assert(N >= clusters);
-    vector<pair<double, double>> coords(N);
+vector<pair<double, double>> generate_spatial_distribution(int clusters, discrete_distribution<int> hh_dist, double cluster_kernel_sd, mt19937& rng) {
+    //assert(N >= clusters);
+    vector<pair<double, double>> cluster_coords(clusters);
+    vector<int> cluster_sizes(clusters);
+    vector<pair<double, double>> node_coords;
     normal_distribution<double> rnorm_loc(0.0, 1.0);
 
-    for (int i = 0; i < clusters; ++i) { // p_zero anchors one cluster; where are the others?
+    int N = 0;
+    for (unsigned int i = 0; i < cluster_sizes.size(); ++i) {
         const double x = rnorm_loc(rng);
         const double y = rnorm_loc(rng);
-        coords[i] = make_pair(x, y);
+        cluster_coords[i] = make_pair(x, y);
+
+        cluster_sizes[i] = hh_dist(rng);
+        N += cluster_sizes[i];
     }
 
-    uniform_int_distribution<int> rand_clust(0,clusters-1); // [a,b] inclusive
     normal_distribution<double> cluster_noise(0.0,cluster_kernel_sd);
-    for (int i = clusters; i < N; ++i) { // for each remaining person
-        const int cluster_idx = rand_clust(rng);
-        const double x = coords[cluster_idx].first + cluster_noise(rng);
-        const double y = coords[cluster_idx].second + cluster_noise(rng);
-        coords[i] = make_pair(x, y);
+
+    for (unsigned int i = 0; i < cluster_sizes.size(); ++i) { // for each remaining person
+        for (int j = 0; j < cluster_sizes[i]; ++j) {
+            const double x = cluster_coords[i].first + cluster_noise(rng);
+            const double y = cluster_coords[i].second + cluster_noise(rng);
+            node_coords.push_back(make_pair(x, y));
+        }
     }
 
-    return coords;
+    return node_coords;
 }
 
 
@@ -98,16 +108,20 @@ bool is_node_in_level(Node* const n, const set<Node*, NodePtrComp> &level) { ret
 
 
 Network* generate_ebola_network(const NetParameters &par, map<Node*, int> &level_of) {
-    const int N = par.N;
     const int clusters = par.clusters;
     const double mean_deg = par.mean_deg;
     const double cluster_kernel_sd = par.cluster_kernel_sd;
     const double wiring_kernel_sd = par.wiring_kernel_sd;
     const unsigned int seed = par.seed;
     const unsigned int desired_levels = par.desired_levels;
-    vector<set<Node*, NodePtrComp> > levels(desired_levels, set<Node*, NodePtrComp>());
+    discrete_distribution<int> hh_dist = par.hh_dist;
 
     mt19937 rng(seed);
+    vector<pair<double, double>> coords = generate_spatial_distribution(clusters, hh_dist, cluster_kernel_sd, rng);
+    const int N = coords.size();
+
+    vector<set<Node*, NodePtrComp> > levels(desired_levels, set<Node*, NodePtrComp>());
+
     uniform_real_distribution<double> runif(0.0, 1.0);
 
     Network* ebola_ring = new Network("ebola_ring", Network::Undirected);
@@ -121,7 +135,6 @@ Network* generate_ebola_network(const NetParameters &par, map<Node*, int> &level
     level_of[p_zero] = 0;
 
     // locate nodes, get weights for wiring p_zero
-    vector<pair<double, double>> coords = generate_spatial_distribution(N, clusters, cluster_kernel_sd, rng);
     vector<vector<double>> basic_weights(N, vector<double>(N,0.0));
     const double total_weight = calc_weights(nodes, coords, wiring_kernel_sd, basic_weights);
     const double weight_coef = (N*mean_deg)/total_weight;
