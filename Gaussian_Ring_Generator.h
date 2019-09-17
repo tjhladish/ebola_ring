@@ -12,23 +12,36 @@
 
 using namespace std;
 
+struct Coord {
+    Coord() {
+        x = 0;
+        y = 0;
+    }
+
+    Coord(double _x, double _y): x(_x), y(_y) {}
+
+    double x;
+    double y;
+};
+
 struct NetParameters {
     NetParameters() {
         desired_levels = 3; // index case counts as a level
         N = 1e3;
         clusters = 200;
         mean_deg = 16.0;
-        cluster_kernel_sd = 0.01;
-        wiring_kernel_sd = 0.094;
+        between_cluster_sd = 0.01;
+        within_cluster_sd = 0.01;
+        //wiring_kernel_sd = 0.094;
         seed = 0;
     }
 
-    NetParameters(int n, int c, double md, double ck_sd, double wk_sd, unsigned int s) {
+    NetParameters(int n, int c, double md, double btn_sd, double wtn_sd, unsigned int s) {
         N = n;
         clusters = c;
         mean_deg = md;
-        cluster_kernel_sd = ck_sd;
-        wiring_kernel_sd = wk_sd;
+        between_cluster_sd = btn_sd;
+        within_cluster_sd = wtn_sd;
         seed = s;
     }
 
@@ -36,37 +49,39 @@ struct NetParameters {
     int N;
     int clusters;
     double mean_deg;
-    double cluster_kernel_sd;
-    double wiring_kernel_sd;
+    double between_cluster_sd; // a scaling par
+    double within_cluster_sd;
+    //double wiring_kernel_sd;
     unsigned int seed;
 };
 
 
-vector<pair<double, double>> generate_spatial_distribution(int N, int clusters, double cluster_kernel_sd, mt19937& rng) {
+vector<Coord> generate_spatial_distribution(int N, int clusters, double between_cluster_sd, double within_cluster_sd, mt19937& rng) {
     assert(N >= clusters);
-    vector<pair<double, double>> coords(N);
-    normal_distribution<double> rnorm_loc(0.0, 1.0);
+    vector<Coord> cluster_coords(clusters);
+    vector<Coord> coords(N);
+    //assert(between_cluster_sd > 0);
+    normal_distribution<double> rnorm_loc(0.0, sqrt((double) clusters)*between_cluster_sd);
 
     for (int i = 0; i < clusters; ++i) { // p_zero anchors one cluster; where are the others?
-        const double x = rnorm_loc(rng);
-        const double y = rnorm_loc(rng);
-        coords[i] = make_pair(x, y);
+        cluster_coords[i] = Coord(rnorm_loc(rng), rnorm_loc(rng));
     }
 
-    uniform_int_distribution<int> rand_clust(0,clusters-1); // [a,b] inclusive
-    normal_distribution<double> cluster_noise(0.0,cluster_kernel_sd);
-    for (int i = clusters; i < N; ++i) { // for each remaining person
-        const int cluster_idx = rand_clust(rng);
-        const double x = coords[cluster_idx].first + cluster_noise(rng);
-        const double y = coords[cluster_idx].second + cluster_noise(rng);
-        coords[i] = make_pair(x, y);
+    uniform_int_distribution<int> rand_clust(0, clusters-1); // [a,b] inclusive
+    normal_distribution<double> cluster_noise(0.0, within_cluster_sd);
+    for (int i = 0; i < N; ++i) { // for each remaining person
+        const Coord cluster_loc = cluster_coords[rand_clust(rng)];
+        const double x = cluster_loc.x + cluster_noise(rng);
+        const double y = cluster_loc.y + cluster_noise(rng);
+        coords[i] = Coord(x, y);
+cout << i << " " << x << " " << y << endl;
     }
 
     return coords;
 }
 
 
-double calc_weights(const vector<Node*> &nodes, const vector<pair<double, double>> &coords, const double wiring_kernel_sd, vector<vector<double>>& basic_weights) {
+double calc_weights(const vector<Node*> &nodes, const vector<Coord> &coords, const double wiring_kernel_sd, vector<vector<double>>& basic_weights) {
     const unsigned int N = nodes.size();
     assert(coords.size() == N);
     assert(basic_weights.size() == N);
@@ -75,11 +90,11 @@ double calc_weights(const vector<Node*> &nodes, const vector<pair<double, double
     const double wiring_kernel_var = pow(wiring_kernel_sd, 2);
 
     for (unsigned int i = 0; i < N; ++i) {
-        const double x1 = coords[i].first;
-        const double y1 = coords[i].second;
+        const double x1 = coords[i].x;
+        const double y1 = coords[i].y;
         for (unsigned int j = i+1; j < N; ++j) {
-            const double x2 = coords[j].first;
-            const double y2 = coords[j].second;
+            const double x2 = coords[j].x;
+            const double y2 = coords[j].y;
             const double distance = sqrt(pow(x2-x1,2) + pow(y2-y1,2));
             basic_weights[i][j] = normal_pdf(distance, 0.0, wiring_kernel_var);
             basic_weights[j][i] = basic_weights[i][j];
@@ -101,8 +116,9 @@ Network* generate_ebola_network(const NetParameters &par, map<Node*, int> &level
     const int N = par.N;
     const int clusters = par.clusters;
     const double mean_deg = par.mean_deg;
-    const double cluster_kernel_sd = par.cluster_kernel_sd;
-    const double wiring_kernel_sd = par.wiring_kernel_sd;
+    const double between_cluster_sd = par.between_cluster_sd;
+    const double within_cluster_sd = par.within_cluster_sd;
+    const double wiring_kernel_sd = 1.0;
     const unsigned int seed = par.seed;
     const unsigned int desired_levels = par.desired_levels;
     vector<set<Node*, NodePtrComp> > levels(desired_levels, set<Node*, NodePtrComp>());
@@ -121,7 +137,7 @@ Network* generate_ebola_network(const NetParameters &par, map<Node*, int> &level
     level_of[p_zero] = 0;
 
     // locate nodes, get weights for wiring p_zero
-    vector<pair<double, double>> coords = generate_spatial_distribution(N, clusters, cluster_kernel_sd, rng);
+    vector<Coord> coords = generate_spatial_distribution(N, clusters, between_cluster_sd, within_cluster_sd, rng);
     vector<vector<double>> basic_weights(N, vector<double>(N,0.0));
     const double total_weight = calc_weights(nodes, coords, wiring_kernel_sd, basic_weights);
     const double weight_coef = (N*mean_deg)/total_weight;
