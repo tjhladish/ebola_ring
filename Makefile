@@ -48,7 +48,7 @@ libabc: $(ABC_PATH)/libabc.a
 ## resulting_binary: source_with_main.cpp assorted other dependencies
 ##   commands
 
-ebola_net: main_net_gen.cpp Ring_Generator.h epifire libabc
+ebola_net: main_net_gen.cpp Gaussian_Ring_Generator.h epifire libabc
 	g++ $(FLAGS) $< -o $@ $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS)
 
 degvtime: degree_vs_time.cpp epifire

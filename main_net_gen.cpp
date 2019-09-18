@@ -1,5 +1,4 @@
 #include "Gaussian_Ring_Generator.h"
-#include "Event_Driven_Ebola_Sim.h"
 #include "AbcSmc.h"
 
 const vector<double>
@@ -31,42 +30,9 @@ const vector<double>
                1.0783364083912647632e-20 };
 
 const gsl_rng* GSL_RNG = gsl_rng_alloc (gsl_rng_taus2); // RNG for AbcSmc
-
-/*
-enum EventType { StoE_EVENT,
-                 EtoI_EVENT,
-                 ItoR_EVENT,
-                 ItoH_EVENT,
-                 ItoH_PZERO_EVENT,
-                 ItoD_EVENT,
-                 V1_EVENT,
-                 V2_EVENT,
-                 NUM_OF_EVENT_TYPES }; // must be last*/
-
-// mean  = alpha/beta
-// sd    = sqrt(alpha)/beta
-// alpha = (mean/sd)**2
-// beta  = mean/alpha --> mean/(sd**2 * beta**2) --> (mean/sd**2)**(1/3)
-
-inline double gamma_alpha(double mean, double sd) {return pow(mean/sd, 2);}
-inline double gamma_beta(double mean, double sd) {return pow(mean/pow(sd,2), 1.0/3);}
 random_device true_rng;
 
-map<EventType, function<double(mt19937&)> > initialize_event_generator() {
-    map<EventType, function<double(mt19937&)> > event_generator = {
-        {StoE_EVENT,      gamma_distribution<double>(gamma_alpha(2,1), gamma_beta(2,1))},   // 2,1 are totally arbitary--prob needs to be fit
-        {EtoI_EVENT,      gamma_distribution<double>(gamma_alpha(6,2), gamma_beta(6,2))},   // 6,2
-        {ItoR_EVENT,      gamma_distribution<double>(gamma_alpha(9,4), gamma_beta(9,4))},   // 9,4
-        {ItoH_EVENT,      gamma_distribution<double>(gamma_alpha(2,1), gamma_beta(2,1))},   // 2,1
-        {ItoH_PZERO_EVENT,gamma_distribution<double>(gamma_alpha(5,3), gamma_beta(5,3))},   // 5,3
-        {ItoD_EVENT,      gamma_distribution<double>(gamma_alpha(8,4), gamma_beta(8,4))},   // 8,4 arbitary numbers
-        {V1_EVENT,        gamma_distribution<double>(gamma_alpha(5,3), gamma_beta(5,3))},   // 5,3
-        {V2_EVENT,        uniform_real_distribution<double>(28.0,28.0)},                    // 5,3
-    };
-    return event_generator;
-}
-
-void initialize_parameters(vector<double> &abc_args, NetParameters &netpar, SimParameters &simpar) {
+void initialize_parameters(vector<double> &abc_args, NetParameters &netpar) {
     // NB: There are two different random seeds, one for network generation and one for transmission
     // modeling.  This is so that they can separately be varied or fixed.  Variable seeds can be
     // chosen in a number of ways; two that both work on the dev machine are as follows:
@@ -82,37 +48,66 @@ void initialize_parameters(vector<double> &abc_args, NetParameters &netpar, SimP
     // N = 10x larger than the net size given simple branching process
     // (using sum of first n terms of geometric series)
     const double safety_factor = 2; // was 10
-    double expected_N = safety_factor*(1.0-pow(netpar.mean_deg, netpar.desired_levels)) / (1.0 - netpar.mean_deg);//1e4;
+    double desired_N = safety_factor*(1.0-pow(netpar.mean_deg, netpar.desired_levels)) / (1.0 - netpar.mean_deg);//1e4;
     netpar.clusters = 0;
     double avg_hh_size = 0;
     for (unsigned int i=0; i<hh_nbinom.size(); ++i) avg_hh_size += i*hh_nbinom[i];
 
-    netpar.clusters = (int) (expected_N / avg_hh_size);
-    cerr << "Expected N: " << expected_N << endl;
-    cerr << "Expected household size: " << avg_hh_size << endl;
-    cerr << "Households: " << netpar.clusters << endl;
+    netpar.clusters = (int) (desired_N / avg_hh_size);
+    cerr << "Desired N based on # levels, expected degree & safety factor: " << desired_N << endl;
+    cerr << "Expected household size based on HH size dist: " << avg_hh_size << endl;
+    cerr << "Resulting # households: " << netpar.clusters << endl;
 
     netpar.hh_dist = discrete_distribution<int>(hh_nbinom.begin(), hh_nbinom.end());
 
-    netpar.cluster_kernel_sd = abc_args[0]; //0.01;
-    netpar.wiring_kernel_sd  = abc_args[1]; //0.094;
+    netpar.between_cluster_sd = abc_args[0];
+    netpar.within_cluster_sd  = abc_args[1]; //0.01;
     netpar.seed = abc_args[0];
-
-    // Transmission model parameters
-    Vaccine vac;
-    //vac.efficacy = {1.0, 0.0};   // single dose vaccine
-    vac.efficacy = {0.8, 0.9}; // two dose vaccine
-    vac.coverage = {0.5, 1.0};
-    vac.timeToProtection = 7;
-    vac.isLeaky  = true;
-
-    simpar.vaccine = vac;
-    simpar.seed = 0;//true_rng();
-    simpar.event_generator = initialize_event_generator();
-    // TODO - finish implementing:
-    //simpar.prob_quarantine = 0.33;     // start 1/3, max 2/3
-    //simpar.prob_community_death = 0.8; // 80%
 }
+
+
+struct InterviewProbabilities {
+    InterviewProbabilities() : fixed(1.0) {};
+    InterviewProbabilities(double f) : fixed(f) {};
+    double fixed;
+};
+
+
+Network* interview_network(Network* net, const map<Node*, int> &level_of, const InterviewProbabilities &ip, int seed) {
+    mt19937 rng(seed);
+    uniform_real_distribution<double> runif(0.0, 1.0);
+
+    Network* inet = net->duplicate();
+    set<Node*> interviewed_nodes;
+    for (Node* node: inet->get_nodes()) {
+        const int lvl = level_of.at(net->get_node(node->get_id()));
+        switch (lvl) {
+          case 0:
+            interviewed_nodes.insert(node);
+            break;
+          case 1:
+          case 2:
+            if (runif(rng) < ip.fixed) interviewed_nodes.insert(node);
+            break;
+          default:
+            break;
+        }
+    }
+
+    set<Node*> detected_nodes(interviewed_nodes);
+    for (Node* node: interviewed_nodes) {
+        for (Node* neighbor: node->get_neighbors()) detected_nodes.insert(neighbor);
+    }
+
+    vector<Node*> inodes = inet->get_nodes();
+    vector<Node*> undetected_nodes;
+    set_difference(inodes.begin(), inodes.end(), 
+                   detected_nodes.begin(), detected_nodes.end(), 
+                   inserter(undetected_nodes, undetected_nodes.begin()));
+    for (Node* unode: undetected_nodes) inet->delete_node(unode);
+    return inet;
+}
+
 
 vector<double> simulator(vector<double> args, const unsigned long int rng_seed, const unsigned long int serial, const ABC::MPI_par* /*mp*/) {
     // pull out the network parameterization
@@ -120,23 +115,18 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
     //vector<double> abc_pars = {4.0};
     //vector<double> abc_pars = {(double) atoi(argv[1])};
     NetParameters netpar = {};
-    SimParameters simpar = {};
-    initialize_parameters(args, netpar, simpar);
-    const int REPS = 1;
+    initialize_parameters(args, netpar);
+    const int REPS = 1;  //100;
     vector<vector<double>> level_sizes(2, vector<double>(REPS,0.0));
 
     for (unsigned int rep = 0; rep < REPS; ++rep) {
         netpar.seed = rng_seed + rep;
-        simpar.seed = rng_seed;
 
         map<Node*, int> level_of;
         Network* net = generate_ebola_network(netpar, level_of); // omit seed argument for seed based on current time
-        Node* p_zero = net->get_nodes()[0];          // not elegant, but works for now
+        //Node* p_zero = net->get_nodes()[0];          // not elegant, but works for now
 
-        simpar.network    = net;
-        simpar.index_case = p_zero;
-
-    //    net->write_edgelist("net_w_clustering.csv", Network::NodeIDs);
+        net->write_edgelist("./revpar_testnets/net_" + ABC::toString(serial) + ".csv", Network::NodeIDs);
     //    remove_clustering(net, rng);
     //    net->validate();
     //    net->write_edgelist("net_wo_clustering.csv", Network::NodeIDs);
@@ -144,16 +134,6 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
 
     //    cerr << "Total size after pruning: " << net->size() << endl;
     //    cerr << "Transitivity clustering coefficient after pruning: " << net->transitivity() << endl;
-
-    /*    for(int i=0; i<1; i++ ) {
-            Event_Driven_Ebola_Sim sim(simpar);
-            sim.expose(p_zero);
-            sim.run_simulation();
-            //cout << sim.current_epidemic_size() << endl;
-        }*/
-        //vector<double> metrics = {(double) p_zero->deg(), (double) net->size()};
-        // not fitting to transitivity, but want to know it for a bit of analysis
-
         vector<Node*> inner_nodes;
         for (Node* n: net->get_nodes()) {
             const int lev = level_of[n];
@@ -171,6 +151,10 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
             if (lev < 2) inner_nodes.push_back(n);
         }
 
+        InterviewProbabilities ip(0.5);
+        Network* inet = interview_network(net, level_of, ip, rng_seed+1);
+        cout << "Interviewed network size: " << inet->size() << endl;
+
         //double trans = net->transitivity();
         //trans = isfinite(trans) ? trans : -99999.9;
 
@@ -182,11 +166,13 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
         //vector<double> metrics = {(double) p_zero->deg(), (double) net->size(), trans, inner_trans};
         delete net;
     }
+    vector<double> metrics(4, 0.0);
     //vector<double> metrics = {(double) p_zero->deg(), (double) net->size()};
-    vector<double> metrics = {mean(  level_sizes[0] ),
+    /*vector<double> metrics = {mean(  level_sizes[0] ),
                               stdev( level_sizes[0] ),
                               mean(  level_sizes[1] ),
                               stdev( level_sizes[1] )};
+    */
     //cerr << metrics[0] << " " << metrics[1] << " " << metrics[2] << " " << metrics[3] << endl;
 
     return metrics;

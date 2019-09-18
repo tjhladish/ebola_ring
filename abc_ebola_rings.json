@@ -1,26 +1,28 @@
 {
-    "smc_iterations" : 10,
+    "smc_iterations" : 1,
     "num_samples"    : 1000,
     "predictive_prior_fraction" : 0.05,
     "pls_training_fraction"     : 0.5,
     "noise"                     : "MULTIVARIATE",
 
-    "database_filename"             : "ebola_rings_popfit.sqlite",
+    "database_filename"             : "ebola_rings_popfit-test.sqlite",
 
     "parameters" : [
-        {"name"       : "cluster_sd",
-         "dist_type"  : "UNIFORM",
+        {"name"       : "btn_cluster_sd",
+         "dist_type"  : "PSEUDO",
          "untransform"  : "POW_10",
          "num_type"   : "FLOAT",
-         "par1"       : -4.0,
-         "par2"       : -0.3},
-
-        {"name"       : "wiring_sd",
-         "dist_type"  : "UNIFORM",
+         "par1"       : -1.0,
+         "par2"       : 1.0,
+         "step"       : 0.25},
+        
+        {"name"       : "wtn_cluster_sd",
+         "dist_type"  : "PSEUDO",
          "untransform"  : "POW_10",
          "num_type"   : "FLOAT",
-         "par1"       : -4.0,
-         "par2"       : -0.3}
+         "par1"       : -1.0,
+         "par2"       : 1.0,
+         "step"       : 0.25}
     ],
 
     "metrics" : [
