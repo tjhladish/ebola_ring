@@ -129,25 +129,22 @@ struct NodePtrComp { bool operator()(const Node* A, const Node* B) const { retur
 bool is_node_in_level(Node* const n, const set<Node*, NodePtrComp> &level) { return level.count(n) > 0; }
 
 
-Network* generate_ebola_network(const NetParameters &par, map<Node*, int> &level_of) {
+Network* generate_ebola_network(const NetParameters &par, vector<set<Node*, NodePtrComp>> levels, map<Node*, int> &level_of) {
     const int clusters = par.clusters;
     const double mean_deg = par.mean_deg;
     const double between_cluster_sd = par.between_cluster_sd;
     const double within_cluster_sd = par.within_cluster_sd;
     const double wiring_kernel_sd = 1.0;
     const unsigned int seed = par.seed;
-    const unsigned int desired_levels = par.desired_levels;
     discrete_distribution<int> hh_dist = par.hh_dist;
 
     mt19937 rng(seed);
     vector<Coord> coords = generate_spatial_distribution(clusters, hh_dist, between_cluster_sd, within_cluster_sd, rng);
     const int N = coords.size();
 
-    vector<set<Node*, NodePtrComp> > levels(desired_levels, set<Node*, NodePtrComp>());
-
     uniform_real_distribution<double> runif(0.0, 1.0);
 
-    Network* ebola_ring = new Network("ebola_ring", Network::Undirected);
+    Network* ebola_ring = new Network(Network::Undirected);
     ebola_ring->populate(N);
 
     vector<Node*> nodes = ebola_ring->get_nodes();
@@ -163,20 +160,16 @@ Network* generate_ebola_network(const NetParameters &par, map<Node*, int> &level
     const double weight_coef = (N*mean_deg)/total_weight;
     //for (auto point: coords) cerr << point.first << " " << point.second << endl;
 
-    set<Node*> zero_weight_nodes = {p_zero}; // no incoming edges to p_zero
+    set<Node*, NodePtrComp> zero_weight_nodes = {p_zero}; // no incoming edges to p_zero
 
     // this yields an expected degree for each node
     for (unsigned int level_idx = 0; level_idx < levels.size(); ++level_idx) { // for each level, inner to outer
-//        cerr << "level idx, size: " << level_idx << ", " << levels[level_idx].size() << endl;
         for (const auto& inner_level_node: levels[level_idx]) {                 // look at each node in level
             const int self_id = inner_level_node->get_id();
             // calculate weights for whether that node should be connected to others
             // connections from outer levels back to inner should be disallowed, as well as within-level
             // connections that have already been considered (no double jeapardy)
             // so . . . how to determine the zero_weight_nodes membership?
-            // TODO - calc_weights does not consider that nodes with lower id will not get wired to nodes with
-            // higher id.  I *think* that's okay, because the weight matrix is symmetrical and that potential edge
-            // gets considered separately
             for (unsigned int i = 0; i < nodes.size(); ++i) {
                 Node* n = nodes[i];
                 if (level_idx == levels.size()-1 and not is_node_in_level(n, levels[level_idx])) {
@@ -193,7 +186,6 @@ Network* generate_ebola_network(const NetParameters &par, map<Node*, int> &level
                     if (not is_node_in_level(n, levels[level_idx])) {
                         levels[level_idx+1].insert(n);
                         level_of[n] = level_idx+1;
-                        //cerr << "linking " << level_idx << " to " << level_idx+1 << endl;
                     }
                 }
             }
@@ -205,17 +197,11 @@ Network* generate_ebola_network(const NetParameters &par, map<Node*, int> &level
         }
     }
 
-//    cerr << "p-zero degree: " << p_zero->deg() << endl;
-
     for (unsigned int i = 1; i < nodes.size(); ++i) { // always leave p_zero
         if (nodes[i]->deg() == 0) ebola_ring->delete_node(nodes[i]);
     }
 
     ebola_ring->reset_node_ids();
-//    cerr << "Total size: " << ebola_ring->size() << endl;
-//    cerr << "Level 1 size: " << levels[1].size() << endl;
-//    cerr << "Level 2 size: " << levels[2].size() << endl;
-//    cerr << "Transitivity clustering coefficient: " << ebola_ring->transitivity() << endl;
     /*
     ebola_ring->write_edgelist("ebola_ring.csv", Network::NodeIDs);
 
