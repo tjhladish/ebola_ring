@@ -129,7 +129,7 @@ struct NodePtrComp { bool operator()(const Node* A, const Node* B) const { retur
 bool is_node_in_level(Node* const n, const set<Node*, NodePtrComp> &level) { return level.count(n) > 0; }
 
 
-Network* generate_ebola_network(const NetParameters &par, vector<set<Node*, NodePtrComp>> levels, map<Node*, int> &level_of) {
+Network* generate_ebola_network(const NetParameters &par, vector<set<Node*, NodePtrComp>> &levels, map<Node*, int> &level_of) {
     const int clusters = par.clusters;
     const double mean_deg = par.mean_deg;
     const double between_cluster_sd = par.between_cluster_sd;
