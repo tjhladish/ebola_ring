@@ -1,5 +1,6 @@
 #include "Gaussian_Ring_Generator.h"
 #include "AbcSmc.h"
+#include "RingMetrics.h"
 
 const vector<double>
   hh_nbinom = {0.0092685312656875431386, 0.029773374281162414551, 0.056065554030988888623, 0.080734397804623894701,
@@ -66,177 +67,6 @@ void initialize_parameters(vector<double> &abc_args, NetParameters &netpar) {
 }
 
 
-struct InterviewProbabilities {
-    InterviewProbabilities() : fixed(1.0) {};
-    InterviewProbabilities(double f) : fixed(f) {};
-    double fixed;
-};
-
-enum InterviewState {UNDETECTED, DETECTED, INTERVIEWED, NUM_OF_INTERVIEW_STATES};
-
-Network* interview_network(Network* net, const map<Node*, int> &level_of, const InterviewProbabilities &ip, const unsigned long int seed, map<Node*, int> &ilevel_of, vector<set<Node*, NodePtrComp> > &ilevels
-) {
-    mt19937 rng(seed);
-    uniform_real_distribution<double> runif(0.0, 1.0);
-
-    Network* inet = net->duplicate();
-    set<Node*, NodePtrComp> interviewed_nodes;
-    for (Node* node: inet->get_nodes()) {
-        const int lvl = level_of.at(net->get_node(node->get_id()));
-        ilevel_of[node] = lvl;
-        ilevels[lvl].insert(node);
-        switch (lvl) {
-          case 0:
-            interviewed_nodes.insert(node);
-            break;
-          case 1:
-          case 2:
-            if (runif(rng) < ip.fixed) interviewed_nodes.insert(node);
-            break;
-          default:
-            break;
-        }
-    }
-
-    set<Node*, NodePtrComp> detected_nodes(interviewed_nodes);
-    for (Node* node: interviewed_nodes) {
-        for (Node* neighbor: node->get_neighbors()) detected_nodes.insert(neighbor);
-    }
-
-    vector<Node*> inodes = inet->get_nodes(); // still have everyone at this point
-    for (Node* inode: inodes) { // label nodes with interviewed/detected status
-        const int id = inode->get_id();
-        int state = interviewed_nodes.count(inode) != 0 ? INTERVIEWED :
-                    detected_nodes.count(inode)    != 0 ? DETECTED : UNDETECTED;
-        net->get_node(id)->set_state(state);
-    }
-
-    vector<Node*> undetected_nodes;
-    set_difference(inodes.begin(), inodes.end(), 
-                   detected_nodes.begin(), detected_nodes.end(), 
-                   inserter(undetected_nodes, undetected_nodes.begin()));
-    for (Node* unode: undetected_nodes) inet->delete_node(unode);
-    return inet;
-}
-
-struct TrialRawMetrics {
-    vector<int> l1_size;
-    vector<int> l2_size;
-    vector<double> l1_l2_ratio;
-};
-
-struct InterviewRawMetrics {
-    vector<int> l1_size;
-    vector<int> l2_size;
-    vector<int> l3_size;
-    vector<double> l1_l2_ratio;
-    vector<double> l111_trans; 
-    vector<double> l112_trans;
-    vector<double> l122_trans;
-    vector<double> l1_log_component_to_size_ratio;
-    vector<double> mean_path_diameter_ratio;
-};
-
-enum TransitivityType {L111, L112, L122, L222, NUM_OF_TRANSITIVITY_TYPES}; // 0, 1, 2, or 3 nodes in level 2
-
-vector<double> special_transitivity (Network* net, map<Node*, int> level_of) {
-    vector<Node*> node_set = net->get_nodes();
-    vector<int> triangles(NUM_OF_TRANSITIVITY_TYPES, 0);
-    vector<int> tripples(NUM_OF_TRANSITIVITY_TYPES, 0);
-
-    for (Node* a: node_set) {
-        if (level_of[a] < 1 or level_of[a] > 2) continue;
-
-        for (Node* b: a->get_neighbors()) {
-            if (level_of[a] < 1 or level_of[a] > 2) continue;
-
-            for (Node* c: b->get_neighbors()) {
-                if (level_of[a] < 1 or level_of[a] > 2) continue;
-                if ( c == a ) continue;
-                const int l2_ct = (level_of[a] == 2) + (level_of[b] == 2) + (level_of[c] == 2);
-                if ( c->is_neighbor(a) ) triangles[l2_ct]++;
-                tripples[l2_ct]++;
-            }
-        }
-    }
-
-    vector<double> trans(NUM_OF_TRANSITIVITY_TYPES);
-    for (int i = 0; i < NUM_OF_TRANSITIVITY_TYPES; ++i) trans[i] = (double) triangles[i] / tripples[i];
-    return trans;
-}
-
-
-pair<double, double> calc_mean_and_max(vector< vector<double> > distance_matrix) {
-
-    double total = 0;
-    int ct = 0;
-    double max = 0;
-    for( unsigned int i=0; i < distance_matrix.size(); i++ ) {
-        for( unsigned int j=0; j < distance_matrix[i].size(); j++ ) {
-            if (i != j) {  // don't consider distance from nodes to themselves
-                const double d = distance_matrix[i][j];
-                total += d;
-                max = d > max ? d : max;
-                ct++;
-            }
-        }
-    }
-    const double mean = total / ct;
-    return make_pair(mean, max);
-}
-
-
-
-void raw_metrics(Network* net, vector<set<Node*, NodePtrComp> > levels, map<Node*, int> level_of, TrialRawMetrics& trm, InterviewRawMetrics& irm, bool do_interview, const unsigned long int rng_seed) {
-    //net->write_edgelist("./revpar_testnets/net_" + ABC::toString(serial) + ".csv", Network::NodeIDs);
-    trm.l1_size.push_back(levels[1].size());
-    trm.l2_size.push_back(levels[2].size());
-    trm.l1_l2_ratio.push_back((double) levels[1].size() / levels[2].size());
-
-   if (do_interview) { 
-        InterviewProbabilities ip(0.5);
-        map<Node*, int> ilevel_of;
-        vector<set<Node*, NodePtrComp> > ilevels(levels.size());
-
-        Network* inet = interview_network(net, level_of, ip, rng_seed+1, ilevel_of, ilevels);
-        vector<double> s_trans = special_transitivity(net, level_of);
-
-        // Determine # components (after removing L0) and # of interviewed L1 nodes
-        Network* tmp_net = net->duplicate();
-        tmp_net->delete_node(tmp_net->get_node(0)); // delete the index case
-        const int comp_ct = tmp_net->get_components().size();
-        int l1i_size = 0;
-        for (Node* n: levels[1]) l1i_size += n->get_state() == INTERVIEWED;
-
-        vector< vector<double> > distance_matrix;
-        vector<Node*> inet_nodes = inet->get_nodes();
-        inet->calculate_distances(inet_nodes, distance_matrix);
-        pair<double, double> mean_and_max = calc_mean_and_max(distance_matrix);
-
-        irm.l1_size.push_back(ilevels[1].size());
-        irm.l2_size.push_back(ilevels[2].size());
-        irm.l3_size.push_back(ilevels[3].size());
-        irm.l1_l2_ratio.push_back((double) ilevels[1].size() / ilevels[2].size());
-        irm.l111_trans.push_back(s_trans[L111]);
-        irm.l112_trans.push_back(s_trans[L112]);
-        irm.l122_trans.push_back(s_trans[L122]);
-        irm.l1_log_component_to_size_ratio.push_back(log((double) comp_ct/l1i_size));
-        irm.mean_path_diameter_ratio.push_back(mean_and_max.first / mean_and_max.second);
-        //cout << "Interviewed network size: " << inet->size() << endl;
-    }
-
-        //double trans = net->transitivity();
-        //trans = isfinite(trans) ? trans : -99999.9;
-
-        //double inner_trans = net->transitivity(inner_nodes);
-        //inner_trans = isfinite(inner_trans) ? inner_trans : -99999.9;
-        //net->validate();
-        //net->write_edgelist(ABC::toString(serial) + "_lvl4.csv", Network::NodeIDs);
-        //cerr << net->size() << " " << inner_nodes.size() << " " << trans << " " << inner_trans << endl;
-        //vector<double> metrics = {(double) p_zero->deg(), (double) net->size(), trans, inner_trans};
-}
-
-
 vector<double> simulator(vector<double> args, const unsigned long int rng_seed, const unsigned long int /*serial*/, const ABC::MPI_par* /*mp*/) {
     // pull out the network parameterization
     // parameterize quarantine & death probs
@@ -244,8 +74,8 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
     //vector<double> abc_pars = {(double) atoi(argv[1])};
     NetParameters netpar = {};
     initialize_parameters(args, netpar);
-    const int trial_networks = 2;  //100;
-    const int interviewed_networks = 1;
+    const int trial_networks = 8;  //100;
+    const int interviewed_networks = 6;
     assert(trial_networks >= interviewed_networks);
 
     TrialRawMetrics trm;
@@ -261,12 +91,18 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
 
         Network* net = generate_ebola_network(netpar, levels, level_of); // omit seed argument for seed based on current time
 
+        cout << "Network size: " << net->size() << endl;
         const bool do_interview = rep < interviewed_networks;
         raw_metrics(net, levels, level_of, trm, irm, do_interview, rng_seed);
         delete net;
     }
 
-    vector<double> metrics(4, 0.0);
+    cout << "Mean trm.l1_size: " << mean(trm.l1_size) << endl;
+    cout << "1st, 3rd quartiles trm.l1_size: " << quantile(trm.l1_size, 0.25) << ", " << quantile(trm.l1_size, 0.75) << endl;
+
+    trm.dumper(cout);
+    irm.dumper(cout);
+    vector<double> metrics(3, 0.0);
     //vector<double> metrics = {(double) p_zero->deg(), (double) net->size()};
     /*vector<double> metrics = {mean(  level_sizes[0] ),
                               stdev( level_sizes[0] ),
