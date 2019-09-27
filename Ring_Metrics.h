@@ -1,6 +1,13 @@
 #ifndef RINGMETRICS_H
 #define RINGMETRICS_H
 
+#include <vector>
+#include <map>
+#include <set>
+#include <random>
+#include <Network.h>
+#include "Gaussian_Ring_Generator.h"
+
 struct TrialRawMetrics {
     vector<int> l1_size;
     vector<int> l2_size;
@@ -61,7 +68,7 @@ struct InterviewProbabilities {
 
 enum InterviewState {UNDETECTED, DETECTED, INTERVIEWED, NUM_OF_INTERVIEW_STATES};
 
-Network* interview_network(Network* net, const map<Node*, int> &level_of, const InterviewProbabilities &ip, const unsigned long int seed) {
+Network* interview_network(Network* net, const map<const Node*, int> &level_of, const InterviewProbabilities &ip, const unsigned long int seed) {
     mt19937 rng(seed);
     uniform_real_distribution<double> runif(0.0, 1.0);
 
@@ -169,67 +176,83 @@ pair<double, double> calc_mean_and_max(PairwiseDistanceMatrix& pdm) {
 }
 
 
-
-void raw_metrics(Network* net, vector<set<Node*, NodePtrComp> > levels, map<Node*, int> level_of, TrialRawMetrics& trm, InterviewRawMetrics& irm, bool do_interview, const unsigned long int rng_seed) {
-    //net->write_edgelist("./revpar_testnets/net_" + ABC::toString(serial) + ".csv", Network::NodeIDs);
+void raw_trial_metrics(vector<set<const Node*, NodePtrComp> > levels, TrialRawMetrics& trm) {
     trm.l1_size.push_back(levels[1].size());
     trm.l2_size.push_back(levels[2].size());
     trm.l1_l2_ratio.push_back((double) levels[1].size() / levels[2].size());
+}
 
-   if (do_interview) { 
-        InterviewProbabilities ip(0.5);
+
+void raw_interview_metrics(Network* inet, vector<set<const Node*, NodePtrComp> > ilevels, map<const Node*, int> ilevel_of, PairwiseDistanceMatrix& pdm, InterviewRawMetrics& irm) {
+
+    vector<double> s_trans = special_transitivity(inet, ilevel_of);
+
+    // Determine # components (after removing L0) and # of interviewed L1 nodes
+    Network* tmp_net = inet->duplicate();
+    tmp_net->delete_node(tmp_net->get_node(0)); // delete the index case
+    const int comp_ct = tmp_net->get_components().size();
+    int l1i_size = 0;
+    if (ilevels.size() > 1) {
+        for (const Node* n: ilevels[1]) l1i_size += n->get_state() == INTERVIEWED;
+    }
+
+    if (pdm.size() == 0) pdm = inet->calculate_distances_map();
+
+    pair<double, double> mean_and_max = calc_mean_and_max(pdm);
+    
+    irm.l1_size.push_back(ilevels[1].size());
+    irm.l2_size.push_back(ilevels[2].size());
+    irm.l3_size.push_back(ilevels[3].size());
+    irm.l1_l2_ratio.push_back((double) ilevels[1].size() / ilevels[2].size());
+    irm.l111_trans.push_back(s_trans[L111]);
+    irm.l112_trans.push_back(s_trans[L112]);
+    irm.l122_trans.push_back(s_trans[L122]);
+    irm.l1_log_component_to_size_ratio.push_back(log((double) comp_ct/l1i_size));
+    irm.mean_path_diameter_ratio.push_back(mean_and_max.first / mean_and_max.second);
+}
+
+
+unsigned int get_pzero_idx(Network* net) {
+    unsigned int pzero_idx;
+    vector<Node*> net_nodes = net->get_nodes();
+
+    for (pzero_idx = 0; pzero_idx < net_nodes.size(); ++pzero_idx) {
+        if (net_nodes[pzero_idx]->get_id() == 0) break;
+    }
+    assert(net_nodes[pzero_idx]->get_id() == 0);
+
+    return pzero_idx;
+}
+
+
+void raw_metrics(Network* net, vector<set<const Node*, NodePtrComp> > levels, map<const Node*, int> level_of, TrialRawMetrics& trm, InterviewRawMetrics& irm, bool do_interview, InterviewProbabilities& ip, const unsigned long int rng_seed) {
+    raw_trial_metrics(levels, trm);
+
+    if (do_interview) { 
         Network* inet = interview_network(net, level_of, ip, rng_seed+1);
 
-        vector<Node*> inet_nodes = inet->get_nodes();
         PairwiseDistanceMatrix pdm = inet->calculate_distances_map();
 
         // build level look-up data structures
         map<const Node*, int> ilevel_of;
         vector<set<const Node*, NodePtrComp> > ilevels(4);
 
-        unsigned int pzero_idx;
-        for (pzero_idx = 0; pzero_idx < inet_nodes.size(); ++pzero_idx) {
-            if (inet_nodes[pzero_idx]->get_id() == 0) break;
-        }
-        assert(inet_nodes[pzero_idx]->get_id() == 0);
+        unsigned int pzero_idx = get_pzero_idx(inet);
+        vector<Node*> inet_nodes = inet->get_nodes();
 
         DistanceMatrix dm = pdm[inet_nodes[pzero_idx]];
         determine_level(dm, ilevel_of, ilevels);
-        vector<double> s_trans = special_transitivity(inet, ilevel_of);
-
-        // Determine # components (after removing L0) and # of interviewed L1 nodes
-        Network* tmp_net = inet->duplicate();
-        tmp_net->delete_node(tmp_net->get_node(0)); // delete the index case
-        const int comp_ct = tmp_net->get_components().size();
-        int l1i_size = 0;
-        if (ilevels.size() > 1) {
-            for (const Node* n: ilevels[1]) l1i_size += n->get_state() == INTERVIEWED;
-        }
-
-        pair<double, double> mean_and_max = calc_mean_and_max(pdm);
-        
-        irm.l1_size.push_back(ilevels[1].size());
-        irm.l2_size.push_back(ilevels[2].size());
-        irm.l3_size.push_back(ilevels[3].size());
-        irm.l1_l2_ratio.push_back((double) ilevels[1].size() / ilevels[2].size());
-        irm.l111_trans.push_back(s_trans[L111]);
-        irm.l112_trans.push_back(s_trans[L112]);
-        irm.l122_trans.push_back(s_trans[L122]);
-        irm.l1_log_component_to_size_ratio.push_back(log((double) comp_ct/l1i_size));
-        irm.mean_path_diameter_ratio.push_back(mean_and_max.first / mean_and_max.second);
+        raw_interview_metrics(inet, ilevels, ilevel_of, pdm, irm);
     }
-        //double trans = net->transitivity();
-        //trans = isfinite(trans) ? trans : -99999.9;
+    //double trans = net->transitivity();
+    //trans = isfinite(trans) ? trans : -99999.9;
 
-        //double inner_trans = net->transitivity(inner_nodes);
-        //inner_trans = isfinite(inner_trans) ? inner_trans : -99999.9;
-        //net->validate();
-        //net->write_edgelist(ABC::toString(serial) + "_lvl4.csv", Network::NodeIDs);
-        //cerr << net->size() << " " << inner_nodes.size() << " " << trans << " " << inner_trans << endl;
-        //vector<double> metrics = {(double) p_zero->deg(), (double) net->size(), trans, inner_trans};
+    //double inner_trans = net->transitivity(inner_nodes);
+    //inner_trans = isfinite(inner_trans) ? inner_trans : -99999.9;
+    //net->validate();
+    //net->write_edgelist(ABC::toString(serial) + "_lvl4.csv", Network::NodeIDs);
+    //cerr << net->size() << " " << inner_nodes.size() << " " << trans << " " << inner_trans << endl;
+    //vector<double> metrics = {(double) p_zero->deg(), (double) net->size(), trans, inner_trans};
 }
-
-
-
 
 #endif

@@ -1,6 +1,6 @@
 -include local.mk
 
-FLAGS = -O2 -std=c++11 -Wall -Wextra -Wno-deprecated-declarations --pedantic
+FLAGS = -O2 -std=c++17 -Wall -Wextra -Wno-deprecated-declarations --pedantic
 
 WORKSPACE ?= $(HOME)/work
 
@@ -50,6 +50,9 @@ libabc: $(ABC_PATH)/libabc.a
 
 ebola_net: main_net_gen.cpp Gaussian_Ring_Generator.h epifire libabc
 	g++ $(FLAGS) $< -o $@ $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS)
+
+calculate_metrics: empirical_raw_metrics.cpp Ring_Metrics.h Gaussian_Ring_Generator.h epifire libabc
+	g++ $(FLAGS) $< -o $@ $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS) -lstdc++fs
 
 degvtime: degree_vs_time.cpp epifire
 	g++ $(FLAGS) $< -o $@ $(INCLUDE) $(LDFLAGS)
