@@ -126,10 +126,10 @@ double calc_weights(const vector<Node*> &nodes, const vector<Coord> &coords, con
 struct NodePtrComp { bool operator()(const Node* A, const Node* B) const { return A->get_id() < B->get_id(); } };
 
 
-bool is_node_in_level(Node* const n, const set<Node*, NodePtrComp> &level) { return level.count(n) > 0; }
+bool is_node_in_level(Node* const n, const set<const Node*, NodePtrComp> &level) { return level.count(n) > 0; }
 
 
-Network* generate_ebola_network(const NetParameters &par, vector<set<Node*, NodePtrComp>> &levels, map<Node*, int> &level_of) {
+Network* generate_ebola_network(const NetParameters &par, vector<set<const Node*, NodePtrComp>> &levels, map<const Node*, int> &level_of) {
     const int clusters = par.clusters;
     const double mean_deg = par.mean_deg;
     const double between_cluster_sd = par.between_cluster_sd;
@@ -160,7 +160,7 @@ Network* generate_ebola_network(const NetParameters &par, vector<set<Node*, Node
     const double weight_coef = (N*mean_deg)/total_weight;
     //for (auto point: coords) cerr << point.first << " " << point.second << endl;
 
-    set<Node*, NodePtrComp> zero_weight_nodes = {p_zero}; // no incoming edges to p_zero
+    set<const Node*, NodePtrComp> zero_weight_nodes = {p_zero}; // no incoming edges to p_zero
 
     // this yields an expected degree for each node
     for (unsigned int level_idx = 0; level_idx < levels.size(); ++level_idx) { // for each level, inner to outer
@@ -181,7 +181,8 @@ Network* generate_ebola_network(const NetParameters &par, vector<set<Node*, Node
                     // Also, disallow connections to self
                     continue;
                 } else if (runif(rng) < weight_coef*basic_weights[self_id][i] and zero_weight_nodes.count(n) == 0) {
-                    inner_level_node->connect_to(n);
+                    Node* unconst_node = ebola_ring->get_node(inner_level_node->get_id());
+                    unconst_node->connect_to(n);
                     // if other node not in this level, put it in the next level
                     if (not is_node_in_level(n, levels[level_idx])) {
                         levels[level_idx+1].insert(n);

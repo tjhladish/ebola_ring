@@ -9,8 +9,8 @@
 #include "Gaussian_Ring_Generator.h"
 
 struct TrialRawMetrics {
-    vector<int> l1_size;
-    vector<int> l2_size;
+    vector<double> l1_size;
+    vector<double> l2_size;
     vector<double> l1_l2_ratio;
 
     void dumper(ostream &os) {
@@ -26,9 +26,9 @@ struct TrialRawMetrics {
 };
 
 struct InterviewRawMetrics {
-    vector<int> l1_size;
-    vector<int> l2_size;
-    vector<int> l3_size;
+    vector<double> l1_size;
+    vector<double> l2_size;
+    vector<double> l3_size;
     vector<double> l1_l2_ratio;
     vector<double> l111_trans; 
     vector<double> l112_trans;
