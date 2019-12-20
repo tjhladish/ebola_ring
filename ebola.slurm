@@ -10,7 +10,7 @@
 #SBATCH --qos=epi
 #SBATCH --chdir=/home/tjhladish/work/ebola
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=1000
+#SBATCH --mem-per-cpu=2000
 #SBATCH --time=24:00:00
 #SBATCH --array=0-999
 #SBATCH --partition=hpg2-compute
