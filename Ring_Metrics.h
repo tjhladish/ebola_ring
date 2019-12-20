@@ -7,6 +7,7 @@
 #include <random>
 #include <Network.h>
 #include "Gaussian_Ring_Generator.h"
+#include <iomanip>
 
 struct TrialRawMetrics {
     vector<double> l1_size;
@@ -61,9 +62,10 @@ struct InterviewRawMetrics {
 };
 
 struct InterviewProbabilities {
-    InterviewProbabilities() : fixed(1.0) {};
-    InterviewProbabilities(double f) : fixed(f) {};
-    double fixed;
+    InterviewProbabilities() : L1(1.0), L2plus(1.0) {};
+    InterviewProbabilities(double l1, double l2plus) : L1(l1), L2plus(l2plus) {};
+    double L1;
+    double L2plus;
 };
 
 enum InterviewState {UNDETECTED, DETECTED, INTERVIEWED, NUM_OF_INTERVIEW_STATES};
@@ -81,8 +83,10 @@ Network* interview_network(Network* net, const map<const Node*, int> &level_of, 
             interviewed_nodes.insert(node);
             break;
           case 1:
+            if (runif(rng) < ip.L1) interviewed_nodes.insert(node);
+            break;
           case 2:
-            if (runif(rng) < ip.fixed) interviewed_nodes.insert(node);
+            if (runif(rng) < ip.L2plus) interviewed_nodes.insert(node);
             break;
           default:
             break;
@@ -94,23 +98,25 @@ Network* interview_network(Network* net, const map<const Node*, int> &level_of, 
         for (Node* neighbor: node->get_neighbors()) detected_nodes.insert(neighbor);
     }
 
-    vector<Node*> inodes = inet->get_nodes(); // still have everyone at this point
+    vector<Node*> inode_vector = inet->get_nodes(); // still have everyone at this point
+    set<Node*, NodePtrComp> inodes(inode_vector.begin(), inode_vector.end());
     for (Node* inode: inodes) { // label nodes with interviewed/detected status
-        const int id = inode->get_id();
         int state = interviewed_nodes.count(inode) != 0 ? INTERVIEWED :
                     detected_nodes.count(inode)    != 0 ? DETECTED : UNDETECTED;
-        inet->get_node(id)->set_state(state);
+        inode->set_state(state);
     }
 
     vector<Node*> undetected_nodes;
+
     set_difference(inodes.begin(), inodes.end(), 
                    detected_nodes.begin(), detected_nodes.end(), 
-                   inserter(undetected_nodes, undetected_nodes.begin()));
+                   inserter(undetected_nodes, undetected_nodes.begin()), NodePtrComp());
+
     for (Node* unode: undetected_nodes) inet->delete_node(unode);
     cerr << "interviewed ct: " << interviewed_nodes.size() << endl;
     cerr << "detected ct: " << detected_nodes.size() << endl;
     cerr << "undetected ct: " << undetected_nodes.size() << endl;
-    cerr << "Trial size, interviewed size: " << net->size() << ", " << inet->size() << endl;
+    cerr << "Trial size, interviewed size: " << net->size() << ", " << inet->size() << endl << endl;
     return inet;
 }
 
@@ -138,7 +144,16 @@ vector<double> special_transitivity (Network* net, map<const Node*, int> level_o
     }
 
     vector<double> trans(NUM_OF_TRANSITIVITY_TYPES);
-    for (int i = 0; i < NUM_OF_TRANSITIVITY_TYPES; ++i) trans[i] = (double) triangles[i] / tripples[i];
+    for (int i = 0; i < NUM_OF_TRANSITIVITY_TYPES; ++i) {
+        trans[i] = (double) triangles[i] / tripples[i];
+        if (not isfinite(trans[i])) {
+            cerr << "Non-finite transitivity: " << trans[i] << " changed to 0.0" << endl;
+            trans[i] = 0.0;
+        }
+    }
+
+//for (int i = 0; i < NUM_OF_TRANSITIVITY_TYPES; ++i) cerr << i << ": " << triangles[i] << " / " << tripples[i] << " = " << trans[i] << endl;
+
     return trans;
 }
 

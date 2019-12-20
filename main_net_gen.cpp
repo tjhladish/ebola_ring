@@ -63,7 +63,6 @@ void initialize_parameters(vector<double> &abc_args, NetParameters &netpar) {
 
     netpar.between_cluster_sd = abc_args[0];
     netpar.within_cluster_sd  = abc_args[1]; //0.01;
-    netpar.seed = abc_args[0];
 }
 
 
@@ -80,7 +79,7 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
 
     TrialRawMetrics trm;
     InterviewRawMetrics irm;
-    InterviewProbabilities ip(0.2);
+    InterviewProbabilities ip(0.75, 0.05); // L1 interview prob, L2+ interview prob
 
     //vector<vector<double>> level_sizes(2, vector<double>(REPS,0.0));
 
