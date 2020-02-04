@@ -98,13 +98,30 @@ vector<Coord> generate_spatial_distribution(int clusters, discrete_distribution<
 }
 
 
-double calc_weights(const vector<Node*> &nodes, const vector<Coord> &coords, const double wiring_kernel_sd, vector<vector<double>>& basic_weights) {
+long double normal_weight(long double x, long double mu, long double var) { return exp(-pow(x-mu,2) / (2.0*var)); }
+
+
+double kahan_sum(vector<double> nums) {
+    double sum = 0.0;
+    double c = 0.0;
+    for (auto num: nums) {
+        double y = num - c;
+        double t = sum + y;
+        c = (t - sum) - y;
+        sum = t;
+    }
+    return sum;
+}
+
+
+double calc_weights(const vector<Node*> &nodes, const vector<Coord> &coords, const double wiring_kernel_sd, vector<vector<double>>& basic_weights, double& min_wt) {
     const unsigned int N = nodes.size();
     assert(coords.size() == N);
     assert(basic_weights.size() == N);
     assert(basic_weights[0].size() == N);
-    double total_weight = 0.0;
     const double wiring_kernel_var = pow(wiring_kernel_sd, 2);
+    const double gaussian_threshold = 10*sqrt(wiring_kernel_var); // distances greater than this are equally likely
+    min_wt = normal_weight(gaussian_threshold, 0.0, wiring_kernel_var);
 
     for (unsigned int i = 0; i < N; ++i) {
         const double x1 = coords[i].x;
@@ -113,23 +130,25 @@ double calc_weights(const vector<Node*> &nodes, const vector<Coord> &coords, con
             const double x2 = coords[j].x;
             const double y2 = coords[j].y;
             const double distance = sqrt(pow(x2-x1,2) + pow(y2-y1,2));
-            basic_weights[i][j] = normal_pdf(distance, 0.0, wiring_kernel_var);
+            basic_weights[i][j] = distance > gaussian_threshold ? min_wt : normal_weight(distance, 0.0, wiring_kernel_var);
             basic_weights[j][i] = basic_weights[i][j];
-            total_weight += 2*basic_weights[i][j];
         }
     }
 
-    return total_weight;
+    vector<double> weights_to_sum = basic_weights[0]; // weights for index case
+    sort(weights_to_sum.begin(), weights_to_sum.end());
+
+    return kahan_sum(weights_to_sum);
 }
 
 
 struct NodePtrComp { bool operator()(const Node* A, const Node* B) const { return A->get_id() < B->get_id(); } };
 
 
-bool is_node_in_level(Node* const n, const set<Node*, NodePtrComp> &level) { return level.count(n) > 0; }
+bool is_node_in_level(Node* const n, const set<const Node*, NodePtrComp> &level) { return level.count(n) > 0; }
 
 
-Network* generate_ebola_network(const NetParameters &par, vector<set<Node*, NodePtrComp>> &levels, map<Node*, int> &level_of) {
+Network* generate_ebola_network(const NetParameters &par, vector<set<const Node*, NodePtrComp>> &levels, map<const Node*, int> &level_of) {
     const int clusters = par.clusters;
     const double mean_deg = par.mean_deg;
     const double between_cluster_sd = par.between_cluster_sd;
@@ -155,12 +174,25 @@ Network* generate_ebola_network(const NetParameters &par, vector<set<Node*, Node
     level_of[p_zero] = 0;
 
     // locate nodes, get weights for wiring p_zero
-    vector<vector<double>> basic_weights(N, vector<double>(N,0.0));
-    const double total_weight = calc_weights(nodes, coords, wiring_kernel_sd, basic_weights);
-    const double weight_coef = (N*mean_deg)/total_weight;
-    //for (auto point: coords) cerr << point.first << " " << point.second << endl;
+    vector<vector<double>> wiring_probs(N, vector<double>(N,0.0));
+    double min_wt = 0;
+    const double p_zero_total_weight = calc_weights(nodes, coords, wiring_kernel_sd, wiring_probs, min_wt);
+    assert(p_zero_total_weight > 0);
+    assert(p_zero_total_weight < N);
 
-    set<Node*, NodePtrComp> zero_weight_nodes = {p_zero}; // no incoming edges to p_zero
+    if (p_zero_total_weight < mean_deg) {
+        const double weight_coef = (mean_deg - p_zero_total_weight) / (N - p_zero_total_weight);
+        for (auto &row: wiring_probs) {
+            for (auto &val: row) val += weight_coef*(1.0 - val);
+        }
+    } else if (p_zero_total_weight > mean_deg) {
+        const double weight_coef = mean_deg/p_zero_total_weight;
+        for (auto &row: wiring_probs) {
+            for (auto &val: row) val *= weight_coef;
+        }
+    }
+
+    set<const Node*, NodePtrComp> zero_weight_nodes = {p_zero}; // no incoming edges to p_zero
 
     // this yields an expected degree for each node
     for (unsigned int level_idx = 0; level_idx < levels.size(); ++level_idx) { // for each level, inner to outer
@@ -180,8 +212,9 @@ Network* generate_ebola_network(const NetParameters &par, vector<set<Node*, Node
                     // 'A' should be connected to 'B' *and* whether 'B' should be connected to 'A'
                     // Also, disallow connections to self
                     continue;
-                } else if (runif(rng) < weight_coef*basic_weights[self_id][i] and zero_weight_nodes.count(n) == 0) {
-                    inner_level_node->connect_to(n);
+                } else if ((runif(rng) < wiring_probs[self_id][i]) and (zero_weight_nodes.count(n) == 0)) {
+                    Node* unconst_node = ebola_ring->get_node(inner_level_node->get_id());
+                    unconst_node->connect_to(n);
                     // if other node not in this level, put it in the next level
                     if (not is_node_in_level(n, levels[level_idx])) {
                         levels[level_idx+1].insert(n);

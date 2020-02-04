@@ -1,6 +1,6 @@
 #include "Gaussian_Ring_Generator.h"
 #include "AbcSmc.h"
-#include "RingMetrics.h"
+#include "Ring_Metrics.h"
 
 const vector<double>
   hh_nbinom = {0.0092685312656875431386, 0.029773374281162414551, 0.056065554030988888623, 0.080734397804623894701,
@@ -63,7 +63,6 @@ void initialize_parameters(vector<double> &abc_args, NetParameters &netpar) {
 
     netpar.between_cluster_sd = abc_args[0];
     netpar.within_cluster_sd  = abc_args[1]; //0.01;
-    netpar.seed = abc_args[0];
 }
 
 
@@ -74,35 +73,36 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
     //vector<double> abc_pars = {(double) atoi(argv[1])};
     NetParameters netpar = {};
     initialize_parameters(args, netpar);
-    const int trial_networks = 8;  //100;
-    const int interviewed_networks = 6;
+    const int trial_networks = 40;
+    const int interviewed_networks = 40;
     assert(trial_networks >= interviewed_networks);
 
     TrialRawMetrics trm;
     InterviewRawMetrics irm;
+    InterviewProbabilities ip(0.75, 0.05); // L1 interview prob, L2+ interview prob
 
     //vector<vector<double>> level_sizes(2, vector<double>(REPS,0.0));
 
     for (unsigned int rep = 0; rep < trial_networks; ++rep) {
         netpar.seed = rng_seed + rep;
 
-        vector<set<Node*, NodePtrComp> > levels(netpar.desired_levels, set<Node*, NodePtrComp>());
-        map<Node*, int> level_of;
+        vector<set<const Node*, NodePtrComp> > levels(netpar.desired_levels, set<const Node*, NodePtrComp>());
+        map<const Node*, int> level_of;
 
         Network* net = generate_ebola_network(netpar, levels, level_of); // omit seed argument for seed based on current time
 
         cout << "Network size: " << net->size() << endl;
         const bool do_interview = rep < interviewed_networks;
-        raw_metrics(net, levels, level_of, trm, irm, do_interview, rng_seed);
+        raw_metrics(net, levels, level_of, trm, irm, do_interview, ip, rng_seed);
         delete net;
     }
 
-    cout << "Mean trm.l1_size: " << mean(trm.l1_size) << endl;
-    cout << "1st, 3rd quartiles trm.l1_size: " << quantile(trm.l1_size, 0.25) << ", " << quantile(trm.l1_size, 0.75) << endl;
+    //cout << "Mean trm.l1_size: " << mean(trm.l1_size) << endl;
+    //cout << "1st, 3rd quartiles trm.l1_size: " << quantile(trm.l1_size, 0.25) << ", " << quantile(trm.l1_size, 0.75) << endl;
 
-    trm.dumper(cout);
-    irm.dumper(cout);
-    vector<double> metrics(3, 0.0);
+    //trm.dumper(cout);
+    //irm.dumper(cout);
+    //vector<double> metrics(3, 0.0);
     //vector<double> metrics = {(double) p_zero->deg(), (double) net->size()};
     /*vector<double> metrics = {mean(  level_sizes[0] ),
                               stdev( level_sizes[0] ),
@@ -110,6 +110,44 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
                               stdev( level_sizes[1] )};
     */
     //cerr << metrics[0] << " " << metrics[1] << " " << metrics[2] << " " << metrics[3] << endl;
+
+    vector<double> metrics = {
+        quantile(irm.l1_size, 0.25),
+        quantile(irm.l1_size, 0.50),
+        quantile(irm.l1_size, 0.75),
+
+        quantile(irm.l2_size, 0.25),
+        quantile(irm.l2_size, 0.50),
+        quantile(irm.l2_size, 0.75),
+
+        quantile(irm.l3_size, 0.25),
+        quantile(irm.l3_size, 0.50),
+        quantile(irm.l3_size, 0.75),
+
+        quantile(irm.l1_l2_ratio, 0.25),
+        quantile(irm.l1_l2_ratio, 0.50),
+        quantile(irm.l1_l2_ratio, 0.75),
+
+        quantile(irm.l111_trans, 0.25),
+        quantile(irm.l111_trans, 0.50),
+        quantile(irm.l111_trans, 0.75),
+
+        quantile(irm.l112_trans, 0.25),
+        quantile(irm.l112_trans, 0.50),
+        quantile(irm.l112_trans, 0.75),
+
+        quantile(irm.l122_trans, 0.25),
+        quantile(irm.l122_trans, 0.50),
+        quantile(irm.l122_trans, 0.75),
+
+        quantile(irm.l1_log_component_to_size_ratio, 0.25),
+        quantile(irm.l1_log_component_to_size_ratio, 0.50),
+        quantile(irm.l1_log_component_to_size_ratio, 0.75),
+
+        quantile(irm.mean_path_diameter_ratio, 0.25),
+        quantile(irm.mean_path_diameter_ratio, 0.50),
+        quantile(irm.mean_path_diameter_ratio, 0.75),
+    };
 
     return metrics;
 }
