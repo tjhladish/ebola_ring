@@ -56,6 +56,7 @@ struct SimPars {
   mt19937& sharedrng;
   double vaccine_delay;
   double rvsv_time_limit;
+  double rvsv_eff;
   int mechanism; // 0 = leaky, 1 = all-or-nothing
 };
 
@@ -90,6 +91,7 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
       ),
       traceProbability(pars.traceProbability),
       backgroundEff(pars.backgroundEff),
+      react_vax_eff(pars.rvsv_eff),
       vacDelay(pars.vaccine_delay)
     // construction with a bit more complexity
     {
@@ -132,7 +134,7 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
     Node* index_case;
     vector< vector<double> > event_log;
     int control_radius = 2;
-    double traceProbability, backgroundEff;
+    double traceProbability, backgroundEff, react_vax_eff;
     vector< bool > efficacious;
 
     virtual void reset() {
@@ -152,7 +154,12 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
         source->get_state() == INFECTIOUS && not community.isQuarantined(source);
     }
 
-    static double logistic(const double x, const double offset, const double stretch, const double k = 1.25, const double mid = 3.5) {
+
+    static double logistic(
+      const double x, const double offset,
+      const double stretch, const double k = 1.25,
+      const double mid = 5 // this is time to protection / 2; this approach assumes mid point of time is mid point of protection
+    ) {
       return(stretch*(1.0/(1.0+exp(-k*(x-mid)))-offset));
     }
 
@@ -164,7 +171,7 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
         return 0.0;
       } else {
         // see R/ring_vax_model_pars.R for value picking
-        return min(logistic(timeSinceRingVaccination, refoffset, refstretch), 1.0);
+        return min(logistic(timeSinceRingVaccination, refoffset, refstretch)*react_vax_eff, 1.0);
       }
     }
 
@@ -298,7 +305,7 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
         if (level != 0) {
           auto vacEvent = event;
           vacEvent.which = VACCINATE;
-          vacEvent.time(vacDelay); // MAGIC NUMBER; vaccinate 2 days later
+          vacEvent.time(vacDelay);
           add_event(vacEvent);
         } else if (not community.isQuarantined(event.node)) { // level == 0 => infectious => immediately quarantine
           auto qEvent = event;
@@ -424,8 +431,10 @@ class EbolaSim : public EventDrivenSim<EboEvent> {
       auto elog = es.event_log;
       // output:
       // prepend, node ID (int), observed level (int),  background vax (bool), trace time (double), rv time (double), inf time (double)
-      for (auto node : net.get_all_observed()) {
-        out  << prepend << ", " << node->get_id() << ", " << net.get_level(node) <<
+      for (auto node : net.network->get_nodes()) if (
+        net.get_ref_level(node) < 4 or isfinite(elog[TRACE][node->get_id()]) or isfinite(elog[INCUBATE][node->get_id()])
+      ) {
+        out  << prepend << ", " << node->get_id() << ", " << net.get_ref_level(node) <<
         ", " << net.hasBackground(node) << ", " << elog[TRACE][node->get_id()] <<
         ", " << elog[VACCINATE][node->get_id()] << ", " << elog[INCUBATE][node->get_id()] << endl;
       }
@@ -441,8 +450,9 @@ std::ostream& operator<<(std::ostream &out, EbolaSim &es) {
   auto elog = es.event_log;
   // output:
   // node ID (int), observed level (int),  background vax (bool), trace time (double), rv time (double), inf time (double), number of exposures
-  for (auto node : net.get_all_observed()) {
-    out  << node->get_id() << ", " << net.get_level(node) <<
+
+  for (auto node : net.network->get_nodes()) {
+    out  << node->get_id() << ", " << net.get_ref_level(node) <<
     ", " << net.hasBackground(node) << ", " << elog[TRACE][node->get_id()] <<
     ", " << elog[VACCINATE][node->get_id()] << ", " << elog[INCUBATE][node->get_id()] <<
     ", " << net.getAttacks(node) << endl;

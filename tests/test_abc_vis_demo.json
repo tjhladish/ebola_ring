@@ -1,0 +1,86 @@
+{
+
+    "noise"                     : "MULTIVARIATE",
+
+    "database_filename"             : "test_abc_vis_demo.sqlite",
+
+    "parameters" : [
+        {"name"       : "net_rep",
+         "dist_type"  : "PSEUDO",
+         "num_type"   : "FLOAT",
+         "par1"       : 0,
+         "par2"       : 999},
+
+        {"name"       : "epi_rep",
+         "dist_type"  : "PSEUDO",
+         "num_type"   : "FLOAT",
+         "par1"       : 0,
+         "par2"       : 9},
+
+        {"name"       : "background_vaccine_efficacy",
+         "short_name" : "bveff",
+         "dist_type"  : "PSEUDO",
+         "num_type"   : "FLOAT",
+         "par1"       : 0.0,
+         "par2"       : 0.0},
+
+        {"name"       : "trace_prob",
+         "dist_type"  : "PSEUDO",
+         "num_type"   : "FLOAT",
+         "par1"       : 0.5,
+         "par2"       : 1.0,
+         "step"       : 0.25 },
+
+       {"name"       : "exp_sd",
+        "dist_type"  : "PSEUDO",
+        "num_type"   : "FLOAT",
+        "par1"       : 2.0,
+        "par2"       : 2.2,
+        "step"       : 0.05},
+
+        {"name"       : "vaccine_delay",
+         "dist_type"  : "PSEUDO",
+         "num_type"   : "FLOAT",
+         "par1"       : 1.0,
+         "par2"       : 5.0,
+         "step"       : 2.0
+        },
+
+        {"name"       : "back_vac_mech",
+         "dist_type"  : "PSEUDO",
+         "num_type"   : "FLOAT",
+         "par1"       : 0.0,
+         "par2"       : 0.0
+       },
+
+         {"name"       : "coverage",
+          "dist_type"  : "PSEUDO",
+          "num_type"   : "FLOAT",
+          "par1"       : 0.0,
+          "par2"       : 0.0
+        },
+
+        {"name"       : "reporting_delay",
+         "dist_type"  : "PSEUDO",
+         "num_type"   : "FLOAT",
+         "par1"       : 3.0,
+         "par2"       : 11.0,
+         "step": 4.0
+       },
+
+       {"name"       : "reactive_vax_efficacy",
+        "dist_type"  : "PSEUDO",
+        "num_type"   : "FLOAT",
+        "par1"       : 0.0,
+        "par2"       : 1.0,
+        "step": 1.0
+      }
+
+    ],
+
+    "metrics" : [
+        {"name"     : "dummy",
+         "num_type" : "FLOAT",
+         "value"    : 0}
+    ]
+}

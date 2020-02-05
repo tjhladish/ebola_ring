@@ -32,7 +32,8 @@ vector<double> simulator(vector<double> args, const unsigned long int /* rng_see
   const double vaccine_delay   = args[5];
   const VaccineMechanism back_vac_mech   = static_cast<VaccineMechanism>(args[6]);
   const double background_coverage = args[7];
-  const int networksdir = static_cast<int>(args[8]);
+  const double reporting_delay = args[8];
+  const double reactive_vax_efficacy = args[9];
   // if back_vac_mech == 0, leaky
   // if back_vac_mech == 1, non-leaky
   // use the efficacious efficacy for bias whatever the vaccine mechanism
@@ -52,10 +53,17 @@ vector<double> simulator(vector<double> args, const unsigned long int /* rng_see
   vector<double> metrics;
   if (!(first_vaccinated and first_resisted)) {
     Network n(Network::Undirected);
-    string network_dir      = networksdir == 0 ? "./networks/" : networksdir == 1 ? "./declustered/" : "./reclustered/";
-    string network_filename = ABC::get_nth_line("network_filenames.txt", net_replicate);
-  //    cerr << "Line " << net_replicate << " was " << network_filename << endl;
-    n.read_edgelist(network_dir + network_filename, ',', false);
+    string netparent = "/home/carl/Dropbox/Ring Simulator/";
+    string network_dir      = netparent + "vis testing networks/";
+    //networksdir == 0 ? "./networks/" : networksdir == 1 ? "./declustered/" : "./reclustered/";
+    string network_filename = ABC::get_nth_line(netparent + "network_filenames.txt", net_replicate);
+// cerr << "dir is " << network_dir << endl;
+// cerr << "getting lines from " << network_dir + "../network_filenames.txt" << endl;
+// cerr << "Line " << net_replicate << " was " << network_filename << endl;
+    n.read_edgelist(network_dir + network_filename, ',');
+if (n.size() <= 0) {
+  cerr << "from " << network_dir + network_filename << " : size 0 network.";
+}
     assert(n.size() > 0);
 
   // backkground coverage calculation:
@@ -73,10 +81,10 @@ vector<double> simulator(vector<double> args, const unsigned long int /* rng_see
 
     SimPars ps = {
       &n, {
-        { EXPOSE,    dgamma(12, exp_sd) }, // time to exposure
+        { EXPOSE,    dgamma(5, exp_sd) }, // time to exposure
         { INCUBATE,  dgamma(9.9, 5.5) }, // time to infectiousness, given exposure
         { RECOVER,   dgamma(8.9, 4) }, // time to removed, given exposure
-        { HOSPITAL,  dgamma(8, 6) }  // time to removed, given exposure
+        { HOSPITAL,  dgamma(reporting_delay, 2) }  // time to removed, given exposure
       },
       trace_prob,
       back_vac_eff,
@@ -84,39 +92,40 @@ vector<double> simulator(vector<double> args, const unsigned long int /* rng_see
       globalrng,
       vaccine_delay,
       6.0, // offset look time limit
+      reactive_vax_efficacy,
       back_vac_mech
     };
 
     EbolaSim es(ps, first_vaccinated);
     es.run(es.defaultEvents());
   //  EbolaSim::dump(cout, es, to_string(serial));
-    metrics = {
-      // background_coverage,
-      es.countPreVax(), // INFECTIOUS AT VACCINE TIME
-      es.count_at(true, true, 0), // vaccinated, EBOV pos, at vaccine-time
-      es.count_at(true, false, 0), // vaccinated, EBOV neg, at vaccine-time
-      es.count_at(false, true, 0), // not, EBOV pos, at vaccine-time
-      es.count_at(false, false, 0)/*, // not, EBOV neg, at vaccine-time
-      es.count_at(true, true, 6), // vaccinated, EBOV pos, at vaccine-time
-      es.count_at(true, false, 6), // vaccinated, EBOV neg, at vaccine-time
-      es.count_at(false, true, 6), // not, EBOV pos, at vaccine-time
-      es.count_at(false, false, 6) // not, EBOV neg, at vaccine-time */
+    metrics = { 0
+//      background_coverage,
+//      es.countPreVax(), // INFECTIOUS AT VACCINE TIME
+//      es.count_at(true, true, 0), // vaccinated, EBOV pos, at vaccine-time
+//      es.count_at(true, false, 0), // vaccinated, EBOV neg, at vaccine-time
+//      es.count_at(false, true, 0), // not, EBOV pos, at vaccine-time
+//      es.count_at(false, false, 0)/*, // not, EBOV neg, at vaccine-time
+//      es.count_at(true, true, 6), // vaccinated, EBOV pos, at vaccine-time
+//      es.count_at(true, false, 6), // vaccinated, EBOV neg, at vaccine-time
+//      es.count_at(false, true, 6), // not, EBOV pos, at vaccine-time
+//      es.count_at(false, false, 6) // not, EBOV neg, at vaccine-time */
     };
 
     EbolaSim::dump(cout, es, to_string(serial));
 
   } else {
-    metrics = {
-      // background_coverage,
-      0, // INFECTIOUS AT VACCINE TIME
-      0, // vaccinated, EBOV pos, at vaccine-time
-      0, // vaccinated, EBOV neg, at vaccine-time
-      0, // not, EBOV pos, at vaccine-time
-      0 /*, // not, EBOV neg, at vaccine-time
-      es.count_at(true, true, 6), // vaccinated, EBOV pos, at vaccine-time
-      es.count_at(true, false, 6), // vaccinated, EBOV neg, at vaccine-time
-      es.count_at(false, true, 6), // not, EBOV pos, at vaccine-time
-      es.count_at(false, false, 6) // not, EBOV neg, at vaccine-time */
+    metrics = { 0
+  //    background_coverage,
+  //    0, // INFECTIOUS AT VACCINE TIME
+  //    0, // vaccinated, EBOV pos, at vaccine-time
+  //    0, // vaccinated, EBOV neg, at vaccine-time
+  //    0, // not, EBOV pos, at vaccine-time
+  //    0 /*, // not, EBOV neg, at vaccine-time
+  //    es.count_at(true, true, 6), // vaccinated, EBOV pos, at vaccine-time
+  //    es.count_at(true, false, 6), // vaccinated, EBOV neg, at vaccine-time
+  //    es.count_at(false, true, 6), // not, EBOV pos, at vaccine-time
+  //    es.count_at(false, false, 6) // not, EBOV neg, at vaccine-time */
     };
   }
 

@@ -55,12 +55,18 @@ test_abc_example_nonleaky.sqlite: test_es_abc abc_ebola_sim_nonleaky.json
 test_abc_example_nobias.sqlite: test_es_abc abc_ebola_sim_nobias.json
 	./$^ --process
 
+test_abc_vis_demo.sqlite: test_es_abc test_abc_vis_demo.json
+	./$^ --process
+
+
 SRCDIR := networks
 SRCS := $(wildcard $(SRCDIR)/*_lvl4.csv)
 TARDIR := declustered
 TARS := $(subst $(SRCDIR),$(TARDIR),$(SRCS))
 TAR2DIR := reclustered
 TARS2 := $(subst $(SRCDIR),$(TAR2DIR),$(SRCS))
+
+VISDIR := ~/Dropbox/Ring\ Simulator/vis\ testing\ networks/
 
 $(TARDIR) $(TAR2DIR):
 	mkdir -p $@
@@ -72,7 +78,7 @@ declusterall: $(TARS)
 
 FORCE:
 
-TARGET := abc_ebola_km
+TARGET := test_abc_vis_demo
 
 THREADS = 6
 SEQ = $(strip $(shell seq $(THREADS)))
@@ -85,6 +91,9 @@ work%.log: test_es_abc $(TARGET).json FORCE | $(TARGET).sqlite
 
 network_filenames.txt: $(wildcard networks/*.csv) | networks
 	cd $|; ls *.csv > ../$@
+
+sillynet:
+	cd ~/Dropbox/Ring\ Simulator/vis\ testing\ networks; ls *.csv > ../network_filenames.txt
 
 dowork: $(LOGS)
 	sqlite3 $(TARGET).sqlite 'select count(*) from job where status="Q";'
