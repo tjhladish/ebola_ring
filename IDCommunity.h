@@ -73,7 +73,9 @@ class IDCommunity {
     prophylactic_vaccine(n->size(), false), // at the moment, only has an "if" element
     quarantined(n->size(), false)
     {
-        reset();
+      vector<Node*> allnodes = network->get_nodes();
+      minps = network->get_node(0)->min_paths(allnodes);
+      reset();
     }
 
     Network* network;           // population
@@ -104,6 +106,12 @@ class IDCommunity {
     int get_level(const int id) const { return traced[id]; }
     void set_level(const Node* n, const int lvl) { set_level(n->get_id(), lvl); }
     void set_level(const int id, const int lvl) { traced[id] = lvl; }
+
+    vector<double> minps;
+
+    int get_ref_level(const Node* n) const {
+      return(minps[n->get_id()]);
+    }
 
     set<Node*> get_all_observed() const {
       set<Node*> res;

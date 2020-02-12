@@ -19,9 +19,9 @@ struct TrialRawMetrics {
         assert(l1_size.size() == l1_l2_ratio.size());
 
         for (unsigned int i = 0; i < l1_size.size(); ++i) {
-            os << l1_size[i] << "\t" 
-               << l2_size[i] << "\t" 
-               << l1_l2_ratio[i] << endl; 
+            os << l1_size[i] << "\t"
+               << l2_size[i] << "\t"
+               << l1_l2_ratio[i] << endl;
         }
     }
 };
@@ -31,11 +31,11 @@ struct InterviewRawMetrics {
     vector<double> l2_size;
     vector<double> l3_size;
     vector<double> l1_l2_ratio;
-    vector<double> l111_trans; 
+    vector<double> l111_trans;
     vector<double> l112_trans;
     vector<double> l122_trans;
     vector<double> l1_log_component_to_size_ratio;
-    vector<double> mean_path_diameter_ratio;       
+    vector<double> mean_path_diameter_ratio;
 
     void dumper(ostream &os) {
         assert(l1_size.size() == l2_size.size());
@@ -48,9 +48,9 @@ struct InterviewRawMetrics {
         assert(l1_size.size() == mean_path_diameter_ratio.size());
 
         for (unsigned int i = 0; i < l1_size.size(); ++i) {
-            os << l1_size[i] << "\t" 
-               << l2_size[i] << "\t" 
-               << l3_size[i] << "\t" 
+            os << l1_size[i] << "\t"
+               << l2_size[i] << "\t"
+               << l3_size[i] << "\t"
                << l1_l2_ratio[i] << "\t"
                << l111_trans[i]  << "\t"
                << l112_trans[i] << "\t"
@@ -108,8 +108,8 @@ Network* interview_network(Network* net, const map<const Node*, int> &level_of, 
 
     vector<Node*> undetected_nodes;
 
-    set_difference(inodes.begin(), inodes.end(), 
-                   detected_nodes.begin(), detected_nodes.end(), 
+    set_difference(inodes.begin(), inodes.end(),
+                   detected_nodes.begin(), detected_nodes.end(),
                    inserter(undetected_nodes, undetected_nodes.begin()), NodePtrComp());
 
     for (Node* unode: undetected_nodes) inet->delete_node(unode);
@@ -214,7 +214,15 @@ void raw_interview_metrics(Network* inet, vector<set<const Node*, NodePtrComp> >
     if (pdm.size() == 0) pdm = inet->calculate_distances_map();
 
     pair<double, double> mean_and_max = calc_mean_and_max(pdm);
-    
+
+    // enforce size - doesn't matter about removing any L4
+    ilevels.resize(4);
+
+// cerr << "ilevels size: " << ilevels.size() << endl;
+// cerr << "ilevels1 size: " << ilevels[1].size() << endl;
+// cerr << "ilevels2 size: " << ilevels[2].size() << endl;
+// cerr << "ilevels3 size: " << ilevels[3].size() << endl;
+
     irm.l1_size.push_back(ilevels[1].size());
     irm.l2_size.push_back(ilevels[2].size());
     irm.l3_size.push_back(ilevels[3].size());
@@ -222,6 +230,10 @@ void raw_interview_metrics(Network* inet, vector<set<const Node*, NodePtrComp> >
     irm.l111_trans.push_back(s_trans[L111]);
     irm.l112_trans.push_back(s_trans[L112]);
     irm.l122_trans.push_back(s_trans[L122]);
+
+// cerr << "comp_ct: " << comp_ct << endl;
+// cerr << "l1i_size: " << l1i_size << endl;
+
     irm.l1_log_component_to_size_ratio.push_back(log((double) comp_ct/l1i_size));
     irm.mean_path_diameter_ratio.push_back(mean_and_max.first / mean_and_max.second);
 }
@@ -243,7 +255,7 @@ unsigned int get_pzero_idx(Network* net) {
 void raw_metrics(Network* net, vector<set<const Node*, NodePtrComp> > levels, map<const Node*, int> level_of, TrialRawMetrics& trm, InterviewRawMetrics& irm, bool do_interview, InterviewProbabilities& ip, const unsigned long int rng_seed) {
     raw_trial_metrics(levels, trm);
 
-    if (do_interview) { 
+    if (do_interview) {
         Network* inet = interview_network(net, level_of, ip, rng_seed+1);
 
         PairwiseDistanceMatrix pdm = inet->calculate_distances_map();

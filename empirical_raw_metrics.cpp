@@ -27,19 +27,24 @@ vector<vector<int> > read_cols_of_ints(string filename, char sep=' ') {
 }
 
 void process_level_data(Network &net, const vector<vector<int>>& level_data, vector<set<const Node*, NodePtrComp> > &levels, map<const Node*, int> &level_of) {
+//int maxlvl = 0;
     for (auto row: level_data) {
-        Node* n = net.get_node(row[0]);
+//cerr << row[0] << " -- " << row[1] << endl;
+        Node* n = net.get_node_by_name(to_string(row[0]));
         const int lvl = row[1];
-        if ((signed) levels.size() <= lvl) levels.resize(lvl+1);
+//if (lvl > maxlvl) maxlvl = lvl;
+        if ((signed) levels.size() <= lvl) levels.resize(lvl+1, set<const Node*, NodePtrComp>());
 
         levels[lvl].insert(n);
         level_of[n] = lvl;
     }
+//cerr << "max lvl: " << maxlvl << endl;
 }
 
 void assign_interview_state(Network &net, vector<vector<int>> state_data) {
     for (auto row: state_data) {
-        net.get_node(row[0])->set_state(row[1]);
+// cerr << row[0] << ", " << row[1] << endl;
+        net.get_node_by_name(to_string(row[0]))->set_state(row[1]);
     }
 }
 
@@ -53,7 +58,7 @@ int main(int argc, char** argv) {
     string data_origin = argv[1];
     string net_file = argv[2];
     string lev_file = argv[3];
-    
+
     assert(filesystem::exists(net_file));
     assert(filesystem::exists(lev_file));
     Network net(Network::Undirected);
@@ -74,13 +79,14 @@ int main(int argc, char** argv) {
 
     if (data_origin == "RVT") {
         TrialRawMetrics trm;
-        raw_trial_metrics(levels, trm); 
+        raw_trial_metrics(levels, trm);
         trm.dumper(cout);
     } else if (data_origin == "GINMIX") {
-        InterviewRawMetrics irm;    
+        InterviewRawMetrics irm;
         string ivw_file = argv[4];
         assert(filesystem::exists(ivw_file));
         vector<vector<int>> interview_data = read_cols_of_ints(ivw_file);
+        assign_interview_state(net, interview_data);
         PairwiseDistanceMatrix pdm = net.calculate_distances_map();
 
         raw_interview_metrics(&net, levels, level_of, pdm, irm);
