@@ -19,6 +19,7 @@ module load gcc/7.3.0 gsl
 
 for i in `seq 1 20`;
 do
-    ./ebola_net abc_ebola_rings-test.json --simulate
+    ./ebola_net abc_ebola_rings-rvt_and_ginmix-lvl_sizes_only.json --simulate
+    #./ebola_net abc_ebola_rings-test.json --simulate
     #./ebola_net abc_ebola_rings.json --simulate -n 20
 done

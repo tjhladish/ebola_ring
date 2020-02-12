@@ -62,7 +62,7 @@ void initialize_parameters(vector<double> &abc_args, NetParameters &netpar) {
     netpar.hh_dist = discrete_distribution<int>(hh_nbinom.begin(), hh_nbinom.end());
 
     netpar.between_cluster_sd = abc_args[0];
-    netpar.within_cluster_sd  = abc_args[1]; //0.01;
+    netpar.within_cluster_sd  = abc_args[0]*abc_args[1]; //0.01;
 }
 
 
@@ -73,7 +73,7 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
     //vector<double> abc_pars = {(double) atoi(argv[1])};
     NetParameters netpar = {};
     initialize_parameters(args, netpar);
-    const int trial_networks = 40;
+    const int trial_networks = 115;
     const int interviewed_networks = 40;
     assert(trial_networks >= interviewed_networks);
 
@@ -112,6 +112,16 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
     //cerr << metrics[0] << " " << metrics[1] << " " << metrics[2] << " " << metrics[3] << endl;
 
     vector<double> metrics = {
+        quantile(trm.l1_size, 0.25),
+        quantile(trm.l1_size, 0.50),
+        quantile(trm.l1_size, 0.75),
+        mean(trm.l1_size),
+
+        quantile(trm.l2_size, 0.25),
+        quantile(trm.l2_size, 0.50),
+        quantile(trm.l2_size, 0.75),
+        mean(trm.l2_size),
+
         quantile(irm.l1_size, 0.25),
         quantile(irm.l1_size, 0.50),
         quantile(irm.l1_size, 0.75),
@@ -123,7 +133,7 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
         quantile(irm.l3_size, 0.25),
         quantile(irm.l3_size, 0.50),
         quantile(irm.l3_size, 0.75),
-
+/*
         quantile(irm.l1_l2_ratio, 0.25),
         quantile(irm.l1_l2_ratio, 0.50),
         quantile(irm.l1_l2_ratio, 0.75),
@@ -146,7 +156,7 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
 
         quantile(irm.mean_path_diameter_ratio, 0.25),
         quantile(irm.mean_path_diameter_ratio, 0.50),
-        quantile(irm.mean_path_diameter_ratio, 0.75),
+        quantile(irm.mean_path_diameter_ratio, 0.75),*/
     };
 
     return metrics;
