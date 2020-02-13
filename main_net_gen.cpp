@@ -63,6 +63,7 @@ void initialize_parameters(vector<double> &abc_args, NetParameters &netpar) {
 
     netpar.between_cluster_sd = abc_args[0];
     netpar.within_cluster_sd  = abc_args[0]*abc_args[1]; //0.01;
+    netpar.wiring_kernel_sd = 1.0;
 }
 
 
@@ -83,13 +84,32 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
 
     //vector<vector<double>> level_sizes(2, vector<double>(REPS,0.0));
 
+    vector< vector<Coord> > all_replicate_coords;
+    double pzero_grand_total_weight = 0;
+
+    for (unsigned int rep = 0; rep < trial_networks; ++rep) {
+        netpar.seed = rng_seed + rep;
+        const int clusters = netpar.clusters;
+        const double between_cluster_sd = netpar.between_cluster_sd;
+        const double within_cluster_sd = netpar.within_cluster_sd;
+        const double wiring_kernel_sd = 1.0;
+        discrete_distribution<int> hh_dist = netpar.hh_dist;
+
+        mt19937 rng(netpar.seed);
+        all_replicate_coords.push_back(generate_spatial_distribution(clusters, hh_dist, between_cluster_sd, within_cluster_sd, rng));
+
+        pzero_grand_total_weight += calc_weights(all_replicate_coords.back(), wiring_kernel_sd);
+    }
+
+    netpar.pzero_total_weight = pzero_grand_total_weight / trial_networks;
+
     for (unsigned int rep = 0; rep < trial_networks; ++rep) {
         netpar.seed = rng_seed + rep;
 
         vector<set<const Node*, NodePtrComp> > levels(netpar.desired_levels, set<const Node*, NodePtrComp>());
         map<const Node*, int> level_of;
 
-        Network* net = generate_ebola_network(netpar, levels, level_of); // omit seed argument for seed based on current time
+        Network* net = generate_ebola_network(netpar, all_replicate_coords[rep], levels, level_of); // omit seed argument for seed based on current time
 
         cout << "Network size: " << net->size() << endl;
         const bool do_interview = rep < interviewed_networks;

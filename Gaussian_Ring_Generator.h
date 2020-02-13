@@ -33,7 +33,8 @@ struct NetParameters {
         mean_deg = 16.0;
         between_cluster_sd = 0.01;
         within_cluster_sd = 0.01;
-        //wiring_kernel_sd = 0.094;
+        wiring_kernel_sd = 1.0;
+        pzero_total_weight = mean_deg;
         seed = 0;
     }
 
@@ -54,7 +55,8 @@ struct NetParameters {
     double mean_deg;
     double between_cluster_sd; // a scaling par
     double within_cluster_sd;
-    //double wiring_kernel_sd;
+    double wiring_kernel_sd;
+    double pzero_total_weight;
     unsigned int seed;
 };
 
@@ -81,7 +83,7 @@ vector<Coord> generate_spatial_distribution(int clusters, discrete_distribution<
             const double x = cluster_coords[i].x + cluster_noise(rng);
             const double y = cluster_coords[i].y + cluster_noise(rng);
             node_coords.push_back(Coord(x, y));
-            const double dist = sqrt(x*x + y*y);
+            const double dist = sqrt(x*x + y*y); // distance of this node from the origin
             if (dist < radius) {
                 radius = dist;
                 test_pzero = node_coords.size() - 1;
@@ -113,15 +115,47 @@ double kahan_sum(vector<double> nums) {
     return sum;
 }
 
+double calc_weights(const vector<Coord> &coords, const double wiring_kernel_sd) {
+    const unsigned int N = coords.size();
+    vector<double> pzero_basic_weights(N);
 
-double calc_weights(const vector<Node*> &nodes, const vector<Coord> &coords, const double wiring_kernel_sd, vector<vector<double>>& basic_weights, double& min_wt) {
-    const unsigned int N = nodes.size();
-    assert(coords.size() == N);
-    assert(basic_weights.size() == N);
-    assert(basic_weights[0].size() == N);
     const double wiring_kernel_var = pow(wiring_kernel_sd, 2);
     const double gaussian_threshold = 10*sqrt(wiring_kernel_var); // distances greater than this are equally likely
-    min_wt = normal_weight(gaussian_threshold, 0.0, wiring_kernel_var);
+    double min_wt = normal_weight(gaussian_threshold, 0.0, wiring_kernel_var);
+
+    const int i = 0;
+    const double x1 = coords[i].x;
+    const double y1 = coords[i].y;
+    for (unsigned int j = i+1; j < N; ++j) {
+        const double x2 = coords[j].x;
+        const double y2 = coords[j].y;
+        const double distance = sqrt(pow(x2-x1,2) + pow(y2-y1,2));
+        pzero_basic_weights[j] = distance > gaussian_threshold ? min_wt : normal_weight(distance, 0.0, wiring_kernel_var);
+    }
+
+    sort(pzero_basic_weights.begin(), pzero_basic_weights.end());
+
+    return kahan_sum(pzero_basic_weights);
+}
+
+
+vector<vector<double>> recalc_weights(const vector<Node*> &nodes, const vector<Coord> &coords, const double wiring_kernel_sd, const double pzero_total_weight, const double mean_deg) {
+
+    cerr << "pzero_total_weight: " << pzero_total_weight << endl;
+    cerr << "net size: " << nodes.size() << endl;
+    const unsigned int N = nodes.size();
+    assert(pzero_total_weight > 0);
+//    assert(pzero_total_weight < N); // this is now sometimes failing, with the change in algorithm.  I *think* that's okay
+    assert(coords.size() == N);
+
+    const double wiring_kernel_var = pow(wiring_kernel_sd, 2);
+    const double gaussian_threshold = 10*sqrt(wiring_kernel_var); // distances greater than this are equally likely
+    double min_wt = normal_weight(gaussian_threshold, 0.0, wiring_kernel_var);
+    vector<vector<double>> wiring_probs(N, vector<double>(N, 0.0));
+
+    const double weight_coef = pzero_total_weight < mean_deg ?
+                               (mean_deg - pzero_total_weight) / (N - pzero_total_weight) :
+                               mean_deg/pzero_total_weight;
 
     for (unsigned int i = 0; i < N; ++i) {
         const double x1 = coords[i].x;
@@ -130,15 +164,14 @@ double calc_weights(const vector<Node*> &nodes, const vector<Coord> &coords, con
             const double x2 = coords[j].x;
             const double y2 = coords[j].y;
             const double distance = sqrt(pow(x2-x1,2) + pow(y2-y1,2));
-            basic_weights[i][j] = distance > gaussian_threshold ? min_wt : normal_weight(distance, 0.0, wiring_kernel_var);
-            basic_weights[j][i] = basic_weights[i][j];
+            const double basic_weight = distance > gaussian_threshold ? min_wt : normal_weight(distance, 0.0, wiring_kernel_var);
+            wiring_probs[i][j] = pzero_total_weight < mean_deg ?
+                                 basic_weight + weight_coef*(1.0 - basic_weight) :
+                                 basic_weight * weight_coef;
         }
     }
 
-    vector<double> weights_to_sum = basic_weights[0]; // weights for index case
-    sort(weights_to_sum.begin(), weights_to_sum.end());
-
-    return kahan_sum(weights_to_sum);
+    return wiring_probs;
 }
 
 
@@ -148,17 +181,14 @@ struct NodePtrComp { bool operator()(const Node* A, const Node* B) const { retur
 bool is_node_in_level(Node* const n, const set<const Node*, NodePtrComp> &level) { return level.count(n) > 0; }
 
 
-Network* generate_ebola_network(const NetParameters &par, vector<set<const Node*, NodePtrComp>> &levels, map<const Node*, int> &level_of) {
-    const int clusters = par.clusters;
+Network* generate_ebola_network(const NetParameters &par, vector<Coord> &coords, vector<set<const Node*, NodePtrComp>> &levels, map<const Node*, int> &level_of) {
     const double mean_deg = par.mean_deg;
-    const double between_cluster_sd = par.between_cluster_sd;
-    const double within_cluster_sd = par.within_cluster_sd;
     const double wiring_kernel_sd = 1.0;
     const unsigned int seed = par.seed;
     discrete_distribution<int> hh_dist = par.hh_dist;
+    const double pzero_total_weight = par.pzero_total_weight;
 
     mt19937 rng(seed);
-    vector<Coord> coords = generate_spatial_distribution(clusters, hh_dist, between_cluster_sd, within_cluster_sd, rng);
     const int N = coords.size();
 
     uniform_real_distribution<double> runif(0.0, 1.0);
@@ -173,24 +203,7 @@ Network* generate_ebola_network(const NetParameters &par, vector<set<const Node*
     levels[0].insert(p_zero);
     level_of[p_zero] = 0;
 
-    // locate nodes, get weights for wiring p_zero
-    vector<vector<double>> wiring_probs(N, vector<double>(N,0.0));
-    double min_wt = 0;
-    const double p_zero_total_weight = calc_weights(nodes, coords, wiring_kernel_sd, wiring_probs, min_wt);
-    assert(p_zero_total_weight > 0);
-    assert(p_zero_total_weight < N);
-
-    if (p_zero_total_weight < mean_deg) {
-        const double weight_coef = (mean_deg - p_zero_total_weight) / (N - p_zero_total_weight);
-        for (auto &row: wiring_probs) {
-            for (auto &val: row) val += weight_coef*(1.0 - val);
-        }
-    } else if (p_zero_total_weight > mean_deg) {
-        const double weight_coef = mean_deg/p_zero_total_weight;
-        for (auto &row: wiring_probs) {
-            for (auto &val: row) val *= weight_coef;
-        }
-    }
+    const vector<vector<double>> wiring_probs = recalc_weights(nodes, coords, wiring_kernel_sd, pzero_total_weight, mean_deg);
 
     set<const Node*, NodePtrComp> zero_weight_nodes = {p_zero}; // no incoming edges to p_zero
 
