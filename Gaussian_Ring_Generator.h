@@ -24,6 +24,12 @@ struct Coord {
     double y;
 };
 
+
+std::ostream& operator<<(std::ostream &out, const Coord &c) {
+    return out << c.x << "," << c.y << endl;
+}
+
+
 struct NetParameters {
     NetParameters() {
         desired_levels = 3; // index case counts as a level
@@ -168,6 +174,7 @@ vector<vector<double>> recalc_weights(const vector<Node*> &nodes, const vector<C
             wiring_probs[i][j] = pzero_total_weight < mean_deg ?
                                  basic_weight + weight_coef*(1.0 - basic_weight) :
                                  basic_weight * weight_coef;
+            wiring_probs[j][i] = wiring_probs[i][j];
         }
     }
 
