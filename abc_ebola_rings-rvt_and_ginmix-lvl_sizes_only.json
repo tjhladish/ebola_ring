@@ -5,7 +5,7 @@
     "pls_training_fraction"     : 0.5,
     "noise"                     : "MULTIVARIATE",
 
-    "database_filename"             : "ebola_rings_popfit-RVT+GINMIX-lvl_sizes_v2.sqlite",
+    "database_filename"             : "ebola_rings_popfit-RVT+GINMIX-lvl_sizes_v3.sqlite",
 
     "parameters" : [
         {"name"       : "btn_cluster_sd",
@@ -26,12 +26,12 @@
         {"name"       : "T_L1size_lq", "num_type"   : "FLOAT", "value"      : 8},
         {"name"       : "T_L1size_md", "num_type"   : "FLOAT", "value"      : 14},
         {"name"       : "T_L1size_hq", "num_type"   : "FLOAT", "value"      : 23},
-        {"name"       : "T_L1size_mn", "num_type"   : "FLOAT", "value"      : 18.36},
+        {"name"       : "T_L1size_mn", "num_type"   : "FLOAT", "value"      : 17.37},
 
-        {"name"       : "T_L2size_lq", "num_type"   : "FLOAT", "value"      : 47},
-        {"name"       : "T_L2size_md", "num_type"   : "FLOAT", "value"      : 66},
-        {"name"       : "T_L2size_hq", "num_type"   : "FLOAT", "value"      : 89.5},
-        {"name"       : "T_L2size_mn", "num_type"   : "FLOAT", "value"      : 79.34},
+        {"name"       : "T_L2size_lq", "num_type"   : "FLOAT", "value"      : 47.5},
+        {"name"       : "T_L2size_md", "num_type"   : "FLOAT", "value"      : 64.5},
+        {"name"       : "T_L2size_hq", "num_type"   : "FLOAT", "value"      : 81.25},
+        {"name"       : "T_L2size_mn", "num_type"   : "FLOAT", "value"      : 72.966667},
 
         {"name"       : "I_L1size_lq", "num_type"   : "FLOAT", "value"      : 8.75},
         {"name"       : "I_L1size_md", "num_type"   : "FLOAT", "value"      : 20},

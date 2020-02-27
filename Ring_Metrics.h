@@ -12,16 +12,16 @@
 struct TrialRawMetrics {
     vector<double> l1_size;
     vector<double> l2_size;
-    vector<double> l1_l2_ratio;
+    vector<double> l2_l1_ratio;
 
     void dumper(ostream &os) {
         assert(l1_size.size() == l2_size.size());
-        assert(l1_size.size() == l1_l2_ratio.size());
+        assert(l1_size.size() == l2_l1_ratio.size());
 
         for (unsigned int i = 0; i < l1_size.size(); ++i) {
             os << l1_size[i] << "\t"
                << l2_size[i] << "\t"
-               << l1_l2_ratio[i] << endl;
+               << l2_l1_ratio[i] << endl;
         }
     }
 };
@@ -30,7 +30,7 @@ struct InterviewRawMetrics {
     vector<double> l1_size;
     vector<double> l2_size;
     vector<double> l3_size;
-    vector<double> l1_l2_ratio;
+    vector<double> l2_l1_ratio;
     vector<double> l111_trans;
     vector<double> l112_trans;
     vector<double> l122_trans;
@@ -40,7 +40,7 @@ struct InterviewRawMetrics {
     void dumper(ostream &os) {
         assert(l1_size.size() == l2_size.size());
         assert(l1_size.size() == l3_size.size());
-        assert(l1_size.size() == l1_l2_ratio.size());
+        assert(l1_size.size() == l2_l1_ratio.size());
         assert(l1_size.size() == l111_trans.size());
         assert(l1_size.size() == l112_trans.size());
         assert(l1_size.size() == l122_trans.size());
@@ -51,7 +51,7 @@ struct InterviewRawMetrics {
             os << l1_size[i] << "\t"
                << l2_size[i] << "\t"
                << l3_size[i] << "\t"
-               << l1_l2_ratio[i] << "\t"
+               << l2_l1_ratio[i] << "\t"
                << l111_trans[i]  << "\t"
                << l112_trans[i] << "\t"
                << l122_trans[i] << "\t"
@@ -146,13 +146,12 @@ vector<double> special_transitivity (Network* net, map<const Node*, int> level_o
     vector<double> trans(NUM_OF_TRANSITIVITY_TYPES);
     for (int i = 0; i < NUM_OF_TRANSITIVITY_TYPES; ++i) {
         trans[i] = (double) triangles[i] / tripples[i];
+        //cerr << "triangles, tripples: " << triangles[i] << " " << tripples[i] << endl;
         if (not isfinite(trans[i])) {
             cerr << "Non-finite transitivity: " << trans[i] << " changed to 0.0" << endl;
             trans[i] = 0.0;
         }
     }
-
-//for (int i = 0; i < NUM_OF_TRANSITIVITY_TYPES; ++i) cerr << i << ": " << triangles[i] << " / " << tripples[i] << " = " << trans[i] << endl;
 
     return trans;
 }
@@ -194,7 +193,14 @@ pair<double, double> calc_mean_and_max(PairwiseDistanceMatrix& pdm) {
 void raw_trial_metrics(vector<set<const Node*, NodePtrComp> > levels, TrialRawMetrics& trm) {
     trm.l1_size.push_back(levels[1].size());
     trm.l2_size.push_back(levels[2].size());
-    trm.l1_l2_ratio.push_back((double) levels[1].size() / levels[2].size());
+
+    double l2_l1_ratio = (double) levels[2].size() / levels[1].size();
+    if (not isfinite(l2_l1_ratio)) {
+        cerr << "Non-finite trial l2:l1 ratio: " << l2_l1_ratio << " changed to 0.0" << endl;
+        l2_l1_ratio = 0.0;
+    }
+
+    trm.l2_l1_ratio.push_back(l2_l1_ratio);
 }
 
 
@@ -226,7 +232,14 @@ void raw_interview_metrics(Network* inet, vector<set<const Node*, NodePtrComp> >
     irm.l1_size.push_back(ilevels[1].size());
     irm.l2_size.push_back(ilevels[2].size());
     irm.l3_size.push_back(ilevels[3].size());
-    irm.l1_l2_ratio.push_back((double) ilevels[1].size() / ilevels[2].size());
+
+    double l2_l1_ratio = (double) ilevels[2].size() / ilevels[1].size();
+    if (not isfinite(l2_l1_ratio)) {
+        cerr << "Non-finite interviewed l2:l1 ratio: " << l2_l1_ratio << " changed to 0.0" << endl;
+        l2_l1_ratio = 0.0;
+    }
+
+    irm.l2_l1_ratio.push_back(l2_l1_ratio);
     irm.l111_trans.push_back(s_trans[L111]);
     irm.l112_trans.push_back(s_trans[L112]);
     irm.l122_trans.push_back(s_trans[L122]);
