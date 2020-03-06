@@ -1,0 +1,52 @@
+{
+    "smc_iterations" : 10,
+    "num_samples"    : 10000,
+    "predictive_prior_fraction" : 0.05,
+    "pls_training_fraction"     : 0.5,
+    "noise"                     : "MULTIVARIATE",
+
+    "database_filename"             : "ebola_rings_popfit-RVT+GINMIX-v4.sqlite",
+
+    "parameters" : [
+        {"name"       : "btn_cluster_sd",
+         "dist_type"  : "NORMAL",
+         "untransform"  : "POW_10",
+         "num_type"   : "FLOAT",
+         "par1"       : 0.0,
+         "par2"       : 1.0},
+        
+        {"name"       : "wtn_cluster_sd_mult",
+         "dist_type"  : "UNIFORM",
+         "num_type"   : "FLOAT",
+         "par1"       : 0.0,
+         "par2"       : 1.0}
+    ],
+
+    "metrics" : [
+        {"name"       : "T_L1size_lq", "num_type"   : "FLOAT", "value"      : 8},
+        {"name"       : "T_L1size_md", "num_type"   : "FLOAT", "value"      : 14},
+        {"name"       : "T_L1size_hq", "num_type"   : "FLOAT", "value"      : 23},
+
+        {"name"       : "T_L2size_lq", "num_type"   : "FLOAT", "value"      : 47.5},
+        {"name"       : "T_L2size_md", "num_type"   : "FLOAT", "value"      : 64.5},
+        {"name"       : "T_L2size_hq", "num_type"   : "FLOAT", "value"      : 81.25},
+        {"name"       : "T_L2size_mn", "num_type"   : "FLOAT", "value"      : 72.966667},
+
+        {"name"       : "T_L2L1ratio_lq", "short_name" : "T_L2L1r_lq", "num_type"   : "FLOAT", "value"      : 2.652256},
+        {"name"       : "T_L2L1ratio_md", "short_name" : "T_L2L1r_md", "num_type"   : "FLOAT", "value"      : 4.840336},
+        {"name"       : "T_L2L1ratio_hq", "short_name" : "T_L2L1r_hq", "num_type"   : "FLOAT", "value"      : 9.087912},
+        {"name"       : "T_L2L1ratio_md", "short_name" : "T_L2L1r_mn", "num_type"   : "FLOAT", "value"      : 10.03201},
+
+        {"name"       : "I_L111_trans_lq", "short_name" : "I_L111_t_lq","num_type"   : "FLOAT", "value"      : 0.02122255},
+        {"name"       : "I_L111_trans_md", "short_name" : "I_L111_t_md","num_type"   : "FLOAT", "value"      : 0.1005773},
+        {"name"       : "I_L111_trans_hq", "short_name" : "I_L111_t_hq","num_type"   : "FLOAT", "value"      : 0.2675585},
+                                                             
+        {"name"       : "I_L112_trans_lq", "short_name" : "I_L112_t_lq","num_type"   : "FLOAT", "value"      : 0.0110294},
+        {"name"       : "I_L112_trans_md", "short_name" : "I_L112_t_md","num_type"   : "FLOAT", "value"      : 0.12861},
+        {"name"       : "I_L112_trans_hq", "short_name" : "I_L112_t_hq","num_type"   : "FLOAT", "value"      : 0.23708025},
+                                                             
+        {"name"       : "I_L122_trans_lq", "short_name" : "I_L122_t_lq","num_type"   : "FLOAT", "value"      : 0},
+        {"name"       : "I_L122_trans_md", "short_name" : "I_L122_t_md","num_type"   : "FLOAT", "value"      : 0},
+        {"name"       : "I_L122_trans_hq", "short_name" : "I_L122_t_hq","num_type"   : "FLOAT", "value"      : 0}
+    ]
+}

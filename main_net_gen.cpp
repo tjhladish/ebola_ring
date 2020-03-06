@@ -45,7 +45,7 @@ void initialize_parameters(vector<double> &abc_args, NetParameters &netpar) {
 
     // Network construction parameters
     netpar.desired_levels = 4; // index case is a level
-    netpar.mean_deg = 16.0;
+    netpar.mean_deg = 17.37;
     // N = 10x larger than the net size given simple branching process
     // (using sum of first n terms of geometric series)
     const double safety_factor = 2; // was 10
@@ -74,7 +74,7 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
     //vector<double> abc_pars = {(double) atoi(argv[1])};
     NetParameters netpar = {};
     initialize_parameters(args, netpar);
-    const int trial_networks = 115;
+    const int trial_networks = 90;
     const int interviewed_networks = 40;
     assert(trial_networks >= interviewed_networks);
 
@@ -94,7 +94,7 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
         const int clusters = netpar.clusters;
         const double between_cluster_sd = netpar.between_cluster_sd;
         const double within_cluster_sd = netpar.within_cluster_sd;
-        const double wiring_kernel_sd = 1.0;
+        const double wiring_kernel_sd = netpar.wiring_kernel_sd;
         discrete_distribution<int> hh_dist = netpar.hh_dist;
 
         mt19937 rng(netpar.seed);
@@ -109,6 +109,7 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
 cerr << "Weight check: " << netpar.pzero_total_weight << " vs " << avg_nodes << endl;
 
     for (unsigned int rep = 0; rep < trial_networks; ++rep) {
+//for (auto coord: all_replicate_coords[rep]) cout << coord;
         netpar.seed = rng_seed + rep;
 
         vector<set<const Node*, NodePtrComp> > levels(netpar.desired_levels, set<const Node*, NodePtrComp>());
@@ -116,7 +117,7 @@ cerr << "Weight check: " << netpar.pzero_total_weight << " vs " << avg_nodes << 
 
         Network* net = generate_ebola_network(netpar, all_replicate_coords[rep], levels, level_of); // omit seed argument for seed based on current time
 
-        cout << "Network size: " << net->size() << endl;
+        cerr << "Network size: " << net->size() << endl;
         const bool do_interview = rep < interviewed_networks;
         raw_metrics(net, levels, level_of, trm, irm, do_interview, ip, rng_seed);
         delete net;
@@ -140,13 +141,18 @@ cerr << "Weight check: " << netpar.pzero_total_weight << " vs " << avg_nodes << 
         quantile(trm.l1_size, 0.25),
         quantile(trm.l1_size, 0.50),
         quantile(trm.l1_size, 0.75),
-        mean(trm.l1_size),
+        //mean(trm.l1_size),
 
         quantile(trm.l2_size, 0.25),
         quantile(trm.l2_size, 0.50),
         quantile(trm.l2_size, 0.75),
         mean(trm.l2_size),
 
+        quantile(trm.l2_l1_ratio, 0.25),
+        quantile(trm.l2_l1_ratio, 0.50),
+        quantile(trm.l2_l1_ratio, 0.75),
+        mean(trm.l2_l1_ratio),
+/*
         quantile(irm.l1_size, 0.25),
         quantile(irm.l1_size, 0.50),
         quantile(irm.l1_size, 0.75),
@@ -158,11 +164,7 @@ cerr << "Weight check: " << netpar.pzero_total_weight << " vs " << avg_nodes << 
         quantile(irm.l3_size, 0.25),
         quantile(irm.l3_size, 0.50),
         quantile(irm.l3_size, 0.75),
-/*
-        quantile(irm.l1_l2_ratio, 0.25),
-        quantile(irm.l1_l2_ratio, 0.50),
-        quantile(irm.l1_l2_ratio, 0.75),
-
+*/
         quantile(irm.l111_trans, 0.25),
         quantile(irm.l111_trans, 0.50),
         quantile(irm.l111_trans, 0.75),
@@ -174,7 +176,7 @@ cerr << "Weight check: " << netpar.pzero_total_weight << " vs " << avg_nodes << 
         quantile(irm.l122_trans, 0.25),
         quantile(irm.l122_trans, 0.50),
         quantile(irm.l122_trans, 0.75),
-
+/*
         quantile(irm.l1_log_component_to_size_ratio, 0.25),
         quantile(irm.l1_log_component_to_size_ratio, 0.50),
         quantile(irm.l1_log_component_to_size_ratio, 0.75),

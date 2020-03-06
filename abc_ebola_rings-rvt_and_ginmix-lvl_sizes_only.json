@@ -1,0 +1,48 @@
+{
+    "smc_iterations" : 10,
+    "num_samples"    : 10000,
+    "predictive_prior_fraction" : 0.05,
+    "pls_training_fraction"     : 0.5,
+    "noise"                     : "MULTIVARIATE",
+
+    "database_filename"             : "ebola_rings_popfit-RVT+GINMIX-lvl_sizes_v3.sqlite",
+
+    "parameters" : [
+        {"name"       : "btn_cluster_sd",
+         "dist_type"  : "NORMAL",
+         "untransform"  : "POW_10",
+         "num_type"   : "FLOAT",
+         "par1"       : 0.0,
+         "par2"       : 1.0},
+        
+        {"name"       : "wtn_cluster_sd_mult",
+         "dist_type"  : "UNIFORM",
+         "num_type"   : "FLOAT",
+         "par1"       : 0.0,
+         "par2"       : 1.0}
+    ],
+
+    "metrics" : [
+        {"name"       : "T_L1size_lq", "num_type"   : "FLOAT", "value"      : 8},
+        {"name"       : "T_L1size_md", "num_type"   : "FLOAT", "value"      : 14},
+        {"name"       : "T_L1size_hq", "num_type"   : "FLOAT", "value"      : 23},
+        {"name"       : "T_L1size_mn", "num_type"   : "FLOAT", "value"      : 17.37},
+
+        {"name"       : "T_L2size_lq", "num_type"   : "FLOAT", "value"      : 47.5},
+        {"name"       : "T_L2size_md", "num_type"   : "FLOAT", "value"      : 64.5},
+        {"name"       : "T_L2size_hq", "num_type"   : "FLOAT", "value"      : 81.25},
+        {"name"       : "T_L2size_mn", "num_type"   : "FLOAT", "value"      : 72.966667},
+
+        {"name"       : "I_L1size_lq", "num_type"   : "FLOAT", "value"      : 8.75},
+        {"name"       : "I_L1size_md", "num_type"   : "FLOAT", "value"      : 20},
+        {"name"       : "I_L1size_hq", "num_type"   : "FLOAT", "value"      : 25},
+
+        {"name"       : "I_L2size_lq", "num_type"   : "FLOAT", "value"      : 18.75},
+        {"name"       : "I_L2size_md", "num_type"   : "FLOAT", "value"      : 40},
+        {"name"       : "I_L2size_hq", "num_type"   : "FLOAT", "value"      : 85.75},
+
+        {"name"       : "I_L3size_lq", "num_type"   : "FLOAT", "value"      : 0},
+        {"name"       : "I_L3size_md", "num_type"   : "FLOAT", "value"      : 0},
+        {"name"       : "I_L3size_hq", "num_type"   : "FLOAT", "value"      : 2}
+    ]
+}
