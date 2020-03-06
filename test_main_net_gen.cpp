@@ -67,7 +67,7 @@ void initialize_parameters(vector<double> &abc_args, NetParameters &netpar) {
 }
 
 
-vector<double> simulator(vector<double> args, const unsigned long int rng_seed, const unsigned long int /*serial*/, const ABC::MPI_par* /*mp*/) {
+vector<double> simulator(vector<double> args, const unsigned long int rng_seed) {
     // pull out the network parameterization
     // parameterize quarantine & death probs
     //vector<double> abc_pars = {4.0};
@@ -86,7 +86,7 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
 
     vector< vector<Coord> > all_replicate_coords;
     double pzero_grand_total_weight = 0;
-    double avg_nodes = 0;
+    double avg_nodes = 0, min_nodes = 10000;
 
 
     for (unsigned int rep = 0; rep < trial_networks; ++rep) {
@@ -100,13 +100,14 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
         mt19937 rng(netpar.seed);
         all_replicate_coords.push_back(generate_spatial_distribution(clusters, hh_dist, between_cluster_sd, within_cluster_sd, rng));
         avg_nodes += all_replicate_coords.back().size();
+        min_nodes = all_replicate_coords.back().size() < min_nodes ? all_replicate_coords.back().size() : min_nodes;
         pzero_grand_total_weight += calc_weights(all_replicate_coords.back(), wiring_kernel_sd);
     }
 
     netpar.pzero_total_weight = pzero_grand_total_weight / trial_networks;
     avg_nodes /= trial_networks;
 
-cerr << "Weight check: " << netpar.pzero_total_weight << " vs " << avg_nodes << endl;
+cerr << "Weight check: " << netpar.pzero_total_weight << " vs " << avg_nodes << " -- min nodes: " << min_nodes << endl;
 
     for (unsigned int rep = 0; rep < trial_networks; ++rep) {
         netpar.seed = rng_seed + rep;
@@ -187,54 +188,10 @@ cerr << "Weight check: " << netpar.pzero_total_weight << " vs " << avg_nodes << 
     return metrics;
 }
 
+int main(int /* argc */, char* /* argv[] */) {
 
+  auto res = simulator({ 0.00113789, 0.950614 }, 1639412554);
 
+  return 0;
 
-void usage() {
-    cerr << "\n\tUsage: ./abc_sql abc_config_sql.json --process\n\n";
-    cerr << "\t       ./abc_sql abc_config_sql.json --simulate\n\n";
-    cerr << "\t       ./abc_sql abc_config_sql.json --simulate -n <number of simulations per database write>\n\n";
-    cerr << "\t       ./abc_sql abc_config_sql.json --process --simulate -n <number of simulations per database write>\n\n";
-
-}
-
-
-int main(int argc, char* argv[]) {
-
-    if (not (argc == 3 or argc == 5 or argc == 6) ) {
-        usage();
-        exit(100);
-    }
-
-    bool process_db = false;
-    bool simulate_db = false;
-    int buffer_size = -1;
-
-    for (int i=2; i < argc;  i++ ) {
-        if ( strcmp(argv[i], "--process") == 0  ) {
-            process_db = true;
-        } else if ( strcmp(argv[i], "--simulate") == 0  ) {
-            simulate_db = true;
-            buffer_size = buffer_size == -1 ? 1 : buffer_size;
-        } else if ( strcmp(argv[i], "-n" ) == 0 ) {
-            buffer_size = atoi(argv[++i]);
-        } else {
-            usage();
-            exit(101);
-        }
-    }
-
-    AbcSmc* abc = new AbcSmc();
-    abc->parse_config(string(argv[1]));
-    if (process_db) {
-        gsl_rng_set(GSL_RNG, time(NULL) * getpid()); // seed the rng using sys time and the process id
-        abc->process_database(GSL_RNG);
-    }
-
-    if (simulate_db) {
-        abc->set_simulator(simulator);
-        abc->simulate_next_particles(buffer_size);
-    }
-
-    return 0;
 }

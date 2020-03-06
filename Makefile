@@ -51,6 +51,9 @@ libabc: $(ABC_PATH)/libabc.a
 ebola_net: main_net_gen.cpp Gaussian_Ring_Generator.h epifire libabc
 	g++ $(FLAGS) $< -o $@ $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS)
 
+ebola_test: test_main_net_gen.cpp Gaussian_Ring_Generator.h epifire libabc
+	g++ $(FLAGS) $< -o $@ $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS)
+
 calculate_metrics: empirical_raw_metrics.cpp Ring_Metrics.h Gaussian_Ring_Generator.h $(EPI_PATH)/libsim.a $(ABC_PATH)/libabc.a
 	g++ $(FLAGS) $< -o $@ $(INCLUDE) -I$(SQL_PATH) $(GSL_LIB) $(ABC_LIB) $(LDFLAGS) -lstdc++fs
 
