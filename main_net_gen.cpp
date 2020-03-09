@@ -61,9 +61,10 @@ void initialize_parameters(vector<double> &abc_args, NetParameters &netpar) {
 
     netpar.hh_dist = discrete_distribution<int>(hh_nbinom.begin(), hh_nbinom.end());
 
-    netpar.between_cluster_sd = abc_args[0];
-    netpar.within_cluster_sd  = abc_args[0]*abc_args[1]; //0.01;
-    netpar.wiring_kernel_sd = 1.0;
+    netpar.between_cluster_sd   = abc_args[0];
+    netpar.within_cluster_sd    = abc_args[0]*abc_args[1]; //0.01;
+    netpar.nonindex_degree_mult = abc_args[2];
+    netpar.wiring_kernel_sd     = 1.0;
 }
 
 
@@ -111,8 +112,10 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
         map<const Node*, int> level_of;
 
         Network* net = generate_ebola_network(netpar, all_replicate_coords[rep], levels, level_of); // omit seed argument for seed based on current time
-
+//string filename = "edges_" + to_string(serial) + "_" + to_string(rep) + ".csv";
+//net->write_edgelist(filename, Network::NodeIDs, ',');
         cerr << "Network size: " << net->size() << endl;
+//exit(5);
         const bool do_interview = rep < interviewed_networks;
         raw_metrics(net, levels, level_of, trm, irm, do_interview, ip, rng_seed);
         delete net;

@@ -7,7 +7,7 @@
 #SBATCH --mail-user=tjhladish@gmail.com
 
 #SBATCH --account=epi
-#SBATCH --qos=epi
+#SBATCH --qos=epi-b
 #SBATCH --chdir=/home/tjhladish/work/ebola
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=2000
@@ -19,7 +19,7 @@ module load gcc/7.3.0 gsl
 
 for i in `seq 1 12`;
 do
-    ./ebola_net abc_ebola_rings-rvt_and_ginmix-v4.json --simulate -n 5
+    ./ebola_net abc_ebola_rings-special_index.json --simulate -n 5
     #./ebola_net abc_ebola_rings-test.json --simulate
     #./ebola_net abc_ebola_rings.json --simulate -n 20
 done

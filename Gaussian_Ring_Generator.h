@@ -40,17 +40,20 @@ struct NetParameters {
         between_cluster_sd = 0.01;
         within_cluster_sd = 0.01;
         wiring_kernel_sd = 1.0;
+        nonindex_degree_mult = 1.0;
         pzero_total_weight = mean_deg;
         seed = 0;
     }
 
-    NetParameters(int n, int c, discrete_distribution<int> hhd, double md, double btn_sd, double wtn_sd, unsigned int s) {
+    NetParameters(int n, int c, discrete_distribution<int> hhd, double md, double btn_sd, double wtn_sd, double deg_mult, unsigned int s) {
         expected_N = n;
         clusters = c;
         hh_dist = hhd;
         mean_deg = md;
         between_cluster_sd = btn_sd;
         within_cluster_sd = wtn_sd;
+        nonindex_degree_mult = deg_mult;
+        // typically don't know the pzero_total_weight when calling the constructor
         seed = s;
     }
 
@@ -62,6 +65,7 @@ struct NetParameters {
     double between_cluster_sd; // a scaling par
     double within_cluster_sd;
     double wiring_kernel_sd;
+    double nonindex_degree_mult;
     double pzero_total_weight;
     unsigned int seed;
 };
@@ -125,8 +129,8 @@ double calc_weights(const vector<Coord> &coords, const double wiring_kernel_sd) 
     const unsigned int N = coords.size();
     vector<double> pzero_basic_weights(N);
 
+    const double gaussian_threshold = 10*wiring_kernel_sd; // distances greater than this are equally likely
     const double wiring_kernel_var = pow(wiring_kernel_sd, 2);
-    const double gaussian_threshold = 10*sqrt(wiring_kernel_var); // distances greater than this are equally likely
     double min_wt = normal_weight(gaussian_threshold, 0.0, wiring_kernel_var);
 
     const int i = 0;
@@ -145,7 +149,7 @@ double calc_weights(const vector<Coord> &coords, const double wiring_kernel_sd) 
 }
 
 
-vector<vector<double>> recalc_weights(const vector<Node*> &nodes, const vector<Coord> &coords, const double wiring_kernel_sd, const double pzero_total_weight, const double mean_deg) {
+vector<vector<double>> recalc_weights(const vector<Node*> &nodes, const vector<Coord> &coords, const double wiring_kernel_sd, const double pzero_total_weight, const double mean_deg, const double nonindex_degree_mult) {
 
     cerr << "pzero_total_weight: " << pzero_total_weight << endl;
     cerr << "net size: " << nodes.size() << endl;
@@ -174,6 +178,7 @@ vector<vector<double>> recalc_weights(const vector<Node*> &nodes, const vector<C
             wiring_probs[i][j] = pzero_total_weight < mean_deg ?
                                  basic_weight + weight_coef*(1.0 - basic_weight) :
                                  basic_weight * weight_coef;
+            if (i != 0) wiring_probs[i][j] *= nonindex_degree_mult; // reduce degree for non-index nodes
             wiring_probs[j][i] = wiring_probs[i][j];
         }
     }
@@ -189,11 +194,8 @@ bool is_node_in_level(Node* const n, const set<const Node*, NodePtrComp> &level)
 
 
 Network* generate_ebola_network(const NetParameters &par, vector<Coord> &coords, vector<set<const Node*, NodePtrComp>> &levels, map<const Node*, int> &level_of) {
-    const double mean_deg = par.mean_deg;
-    const double wiring_kernel_sd = 1.0;
     const unsigned int seed = par.seed;
     discrete_distribution<int> hh_dist = par.hh_dist;
-    const double pzero_total_weight = par.pzero_total_weight;
 
     mt19937 rng(seed);
     const int N = coords.size();
@@ -210,7 +212,7 @@ Network* generate_ebola_network(const NetParameters &par, vector<Coord> &coords,
     levels[0].insert(p_zero);
     level_of[p_zero] = 0;
 
-    const vector<vector<double>> wiring_probs = recalc_weights(nodes, coords, wiring_kernel_sd, pzero_total_weight, mean_deg);
+    const vector<vector<double>> wiring_probs = recalc_weights(nodes, coords, par.wiring_kernel_sd, par.pzero_total_weight, par.mean_deg, par.nonindex_degree_mult);
 
     set<const Node*, NodePtrComp> zero_weight_nodes = {p_zero}; // no incoming edges to p_zero
 
