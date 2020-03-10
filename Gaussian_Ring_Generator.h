@@ -40,7 +40,7 @@ struct NetParameters {
         between_cluster_sd = 0.01;
         within_cluster_sd = 0.01;
         wiring_kernel_sd = 1.0;
-        nonindex_degree_mult = 1.0;
+        nonindex_edegree_mult = 1.0;
         pzero_total_weight = mean_deg;
         seed = 0;
     }
@@ -52,7 +52,7 @@ struct NetParameters {
         mean_deg = md;
         between_cluster_sd = btn_sd;
         within_cluster_sd = wtn_sd;
-        nonindex_degree_mult = deg_mult;
+        nonindex_edegree_mult = deg_mult;
         // typically don't know the pzero_total_weight when calling the constructor
         seed = s;
     }
@@ -65,12 +65,12 @@ struct NetParameters {
     double between_cluster_sd; // a scaling par
     double within_cluster_sd;
     double wiring_kernel_sd;
-    double nonindex_degree_mult;
+    double nonindex_edegree_mult;
     double pzero_total_weight;
     unsigned int seed;
 };
 
-
+/*
 vector<Coord> generate_spatial_distribution(int clusters, discrete_distribution<int> hh_dist, double between_cluster_sd, double within_cluster_sd, mt19937& rng) {
     vector<Coord> cluster_coords(clusters);
     vector<int> cluster_sizes(clusters);
@@ -107,7 +107,7 @@ vector<Coord> generate_spatial_distribution(int clusters, discrete_distribution<
     node_coords[test_pzero] = tmp;
 
     return node_coords;
-}
+}*/
 
 
 long double normal_weight(long double x, long double mu, long double var) { return exp(-pow(x-mu,2) / (2.0*var)); }
@@ -125,6 +125,7 @@ double kahan_sum(vector<double> nums) {
     return sum;
 }
 
+/*
 double calc_weights(const vector<Coord> &coords, const double wiring_kernel_sd) {
     const unsigned int N = coords.size();
     vector<double> pzero_basic_weights(N);
@@ -146,40 +147,75 @@ double calc_weights(const vector<Coord> &coords, const double wiring_kernel_sd) 
     sort(pzero_basic_weights.begin(), pzero_basic_weights.end());
 
     return kahan_sum(pzero_basic_weights);
-}
+}*/
+
+struct ProtoNode {
+    Coord coords;
+    int cluster_ID;
+};
 
 
-vector<vector<double>> recalc_weights(const vector<Node*> &nodes, const vector<Coord> &coords, const double wiring_kernel_sd, const double pzero_total_weight, const double mean_deg, const double nonindex_degree_mult) {
+vector<vector<double>> calc_weights(const NetParameters &par, mt19937& rng) {
+    vector<Coord> cluster_coords(par.clusters);
+    vector<int> cluster_sizes(par.clusters);
+    normal_distribution<double> rnorm_loc(0.0, sqrt((double) par.clusters) * par.between_cluster_sd);
+    discrete_distribution<int> hh_dist = par.hh_dist;
 
-    cerr << "pzero_total_weight: " << pzero_total_weight << endl;
-    cerr << "net size: " << nodes.size() << endl;
-    const unsigned int N = nodes.size();
-    assert(pzero_total_weight > 0);
-//    assert(pzero_total_weight < N); // this is now sometimes failing, with the change in algorithm.  I *think* that's okay
-    assert(coords.size() == N);
+    size_t N = 0;
+    for (unsigned int i = 0; i < cluster_sizes.size(); ++i) {
+        cluster_coords[i] = Coord(rnorm_loc(rng), rnorm_loc(rng));
+        cluster_sizes[i] = hh_dist(rng);
+        N += cluster_sizes[i];
+    }
 
-    const double wiring_kernel_var = pow(wiring_kernel_sd, 2);
-    const double gaussian_threshold = 10*sqrt(wiring_kernel_var); // distances greater than this are equally likely
-    double min_wt = normal_weight(gaussian_threshold, 0.0, wiring_kernel_var);
+    vector<ProtoNode> proto_nodes;
+    normal_distribution<double> cluster_noise(0.0, par.within_cluster_sd);
+
+    double radius = numeric_limits<double>::infinity();
+    unsigned int test_pzero = 0;
+    for (unsigned int i = 0; i < cluster_sizes.size(); ++i) { // for each remaining person
+        for (int j = 0; j < cluster_sizes[i]; ++j) {
+            const double x = cluster_coords[i].x + cluster_noise(rng);
+            const double y = cluster_coords[i].y + cluster_noise(rng);
+            ProtoNode pn;
+            pn.coords     = Coord(x, y);
+            pn.cluster_ID = i;
+            proto_nodes.push_back(pn);
+            const double dist = sqrt(x*x + y*y); // distance of this node from the origin
+            if (dist < radius) {
+                radius = dist;
+                test_pzero = proto_nodes.size() - 1;
+            }
+        }
+    }
+
+    ProtoNode tmp = proto_nodes[0];
+    proto_nodes[0] = proto_nodes[test_pzero];
+    proto_nodes[test_pzero] = tmp;
+
+    const double gaussian_threshold = 10*par.wiring_kernel_sd; // distances greater than this are equally likely
+    const double wiring_kernel_var = pow(par.wiring_kernel_sd, 2);
+    const double min_prob = normal_weight(gaussian_threshold, 0.0, wiring_kernel_var);
     vector<vector<double>> wiring_probs(N, vector<double>(N, 0.0));
 
-    const double weight_coef = pzero_total_weight < mean_deg ?
-                               (mean_deg - pzero_total_weight) / (N - pzero_total_weight) :
-                               mean_deg/pzero_total_weight;
-
-    for (unsigned int i = 0; i < N; ++i) {
-        const double x1 = coords[i].x;
-        const double y1 = coords[i].y;
-        for (unsigned int j = i+1; j < N; ++j) {
-            const double x2 = coords[j].x;
-            const double y2 = coords[j].y;
+    for (size_t i = 0; i < N; ++i) {
+        const ProtoNode pn_i = proto_nodes[i];
+        const double x1 = pn_i.coords.x;
+        const double y1 = pn_i.coords.y;
+        for (size_t j = i+1; j < N; ++j) {
+            const ProtoNode pn_j = proto_nodes[j];
+            const double x2 = pn_j.coords.x;
+            const double y2 = pn_j.coords.y;
             const double distance = sqrt(pow(x2-x1,2) + pow(y2-y1,2));
-            const double basic_weight = distance > gaussian_threshold ? min_wt : normal_weight(distance, 0.0, wiring_kernel_var);
-            wiring_probs[i][j] = pzero_total_weight < mean_deg ?
-                                 basic_weight + weight_coef*(1.0 - basic_weight) :
-                                 basic_weight * weight_coef;
-            if (i != 0) wiring_probs[i][j] *= nonindex_degree_mult; // reduce degree for non-index nodes
-            wiring_probs[j][i] = wiring_probs[i][j];
+            double wp = 1.0; // correct value if i and j are in the same cluster
+            if (pn_i.cluster_ID != pn_j.cluster_ID) {
+                wp = distance > gaussian_threshold ? min_prob : 
+                     normal_weight(distance, 0.0, wiring_kernel_var);
+                if (i != 0) wp *= par.nonindex_edegree_mult; // reduce extra-cluster degree for non-index nodes
+            }
+
+            wiring_probs[i][j] = wp;
+            wiring_probs[j][i] = wp;
         }
     }
 
@@ -193,12 +229,10 @@ struct NodePtrComp { bool operator()(const Node* A, const Node* B) const { retur
 bool is_node_in_level(Node* const n, const set<const Node*, NodePtrComp> &level) { return level.count(n) > 0; }
 
 
-Network* generate_ebola_network(const NetParameters &par, vector<Coord> &coords, vector<set<const Node*, NodePtrComp>> &levels, map<const Node*, int> &level_of) {
-    const unsigned int seed = par.seed;
-    discrete_distribution<int> hh_dist = par.hh_dist;
-
-    mt19937 rng(seed);
-    const int N = coords.size();
+Network* generate_ebola_network(const NetParameters &par, vector<set<const Node*, NodePtrComp>> &levels, map<const Node*, int> &level_of, mt19937& rng) {
+    //vector<Coord> coords = generate_spatial_distribution(clusters, hh_dist, between_cluster_sd, within_cluster_sd, rng)
+    const vector<vector<double>> wiring_probs = calc_weights(par, rng);
+    const int N = wiring_probs.size();
 
     uniform_real_distribution<double> runif(0.0, 1.0);
 
@@ -211,8 +245,6 @@ Network* generate_ebola_network(const NetParameters &par, vector<Coord> &coords,
     assert(p_zero_idx == nodes[p_zero_idx]->get_id()); // only needs to be true for p_zero
     levels[0].insert(p_zero);
     level_of[p_zero] = 0;
-
-    const vector<vector<double>> wiring_probs = recalc_weights(nodes, coords, par.wiring_kernel_sd, par.pzero_total_weight, par.mean_deg, par.nonindex_degree_mult);
 
     set<const Node*, NodePtrComp> zero_weight_nodes = {p_zero}; // no incoming edges to p_zero
 

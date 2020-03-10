@@ -44,7 +44,7 @@ void initialize_parameters(vector<double> &abc_args, NetParameters &netpar) {
     // It seems plausible that one or the other of these might not work, given alternate sys architecture
 
     // Network construction parameters
-    netpar.desired_levels = 4; // index case is a level
+    netpar.desired_levels = 3; // index case is a level
     netpar.mean_deg = 17.37;
     // N = 10x larger than the net size given simple branching process
     // (using sum of first n terms of geometric series)
@@ -63,7 +63,7 @@ void initialize_parameters(vector<double> &abc_args, NetParameters &netpar) {
 
     netpar.between_cluster_sd   = abc_args[0];
     netpar.within_cluster_sd    = abc_args[0]*abc_args[1]; //0.01;
-    netpar.nonindex_degree_mult = abc_args[2];
+    netpar.nonindex_edegree_mult = abc_args[2];
     netpar.wiring_kernel_sd     = 1.0;
 }
 
@@ -85,33 +85,15 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
 
     //vector<vector<double>> level_sizes(2, vector<double>(REPS,0.0));
 
-    vector< vector<Coord> > all_replicate_coords;
-    double pzero_grand_total_weight = 0;
-
     for (unsigned int rep = 0; rep < trial_networks; ++rep) {
         netpar.seed = rng_seed + rep;
-        const int clusters = netpar.clusters;
-        const double between_cluster_sd = netpar.between_cluster_sd;
-        const double within_cluster_sd = netpar.within_cluster_sd;
-        const double wiring_kernel_sd = netpar.wiring_kernel_sd;
-        discrete_distribution<int> hh_dist = netpar.hh_dist;
-
         mt19937 rng(netpar.seed);
-        all_replicate_coords.push_back(generate_spatial_distribution(clusters, hh_dist, between_cluster_sd, within_cluster_sd, rng));
-
-        pzero_grand_total_weight += calc_weights(all_replicate_coords.back(), wiring_kernel_sd);
-    }
-
-    netpar.pzero_total_weight = pzero_grand_total_weight / trial_networks;
-
-    for (unsigned int rep = 0; rep < trial_networks; ++rep) {
-//for (auto coord: all_replicate_coords[rep]) cout << coord;
-        netpar.seed = rng_seed + rep;
 
         vector<set<const Node*, NodePtrComp> > levels(netpar.desired_levels, set<const Node*, NodePtrComp>());
         map<const Node*, int> level_of;
 
-        Network* net = generate_ebola_network(netpar, all_replicate_coords[rep], levels, level_of); // omit seed argument for seed based on current time
+        Network* net = generate_ebola_network(netpar, levels, level_of, rng);
+//
 //string filename = "edges_" + to_string(serial) + "_" + to_string(rep) + ".csv";
 //net->write_edgelist(filename, Network::NodeIDs, ',');
         cerr << "Network size: " << net->size() << endl;
