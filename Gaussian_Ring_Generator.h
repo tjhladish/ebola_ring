@@ -40,21 +40,10 @@ struct NetParameters {
         between_cluster_sd = 0.01;
         within_cluster_sd = 0.01;
         wiring_kernel_sd = 1.0;
+        hh_wiring_prob = 1.0;
         nonindex_edegree_mult = 1.0;
         pzero_total_weight = mean_deg;
         seed = 0;
-    }
-
-    NetParameters(int n, int c, discrete_distribution<int> hhd, double md, double btn_sd, double wtn_sd, double deg_mult, unsigned int s) {
-        expected_N = n;
-        clusters = c;
-        hh_dist = hhd;
-        mean_deg = md;
-        between_cluster_sd = btn_sd;
-        within_cluster_sd = wtn_sd;
-        nonindex_edegree_mult = deg_mult;
-        // typically don't know the pzero_total_weight when calling the constructor
-        seed = s;
     }
 
     int desired_levels;
@@ -66,48 +55,10 @@ struct NetParameters {
     double within_cluster_sd;
     double wiring_kernel_sd;
     double nonindex_edegree_mult;
+    double hh_wiring_prob;
     double pzero_total_weight;
     unsigned int seed;
 };
-
-/*
-vector<Coord> generate_spatial_distribution(int clusters, discrete_distribution<int> hh_dist, double between_cluster_sd, double within_cluster_sd, mt19937& rng) {
-    vector<Coord> cluster_coords(clusters);
-    vector<int> cluster_sizes(clusters);
-    vector<Coord> node_coords;
-    normal_distribution<double> rnorm_loc(0.0, sqrt((double) clusters)*between_cluster_sd);
-
-    int N = 0;
-    for (unsigned int i = 0; i < cluster_sizes.size(); ++i) {
-        cluster_coords[i] = Coord(rnorm_loc(rng), rnorm_loc(rng));
-        cluster_sizes[i] = hh_dist(rng);
-        N += cluster_sizes[i];
-    }
-
-    normal_distribution<double> cluster_noise(0.0, within_cluster_sd);
-
-    double radius = numeric_limits<double>::infinity();
-    unsigned int test_pzero = 0;
-    for (unsigned int i = 0; i < cluster_sizes.size(); ++i) { // for each remaining person
-        for (int j = 0; j < cluster_sizes[i]; ++j) {
-            const double x = cluster_coords[i].x + cluster_noise(rng);
-            const double y = cluster_coords[i].y + cluster_noise(rng);
-            node_coords.push_back(Coord(x, y));
-            const double dist = sqrt(x*x + y*y); // distance of this node from the origin
-            if (dist < radius) {
-                radius = dist;
-                test_pzero = node_coords.size() - 1;
-            }
-//cout << i << " " << x << " " << y << endl;
-        }
-    }
-    // NB: node_coords is no longer organized by household membership.  This isn't something we've been using, but may become of interest.
-    Coord tmp = node_coords[0];
-    node_coords[0] = node_coords[test_pzero];
-    node_coords[test_pzero] = tmp;
-
-    return node_coords;
-}*/
 
 
 long double normal_weight(long double x, long double mu, long double var) { return exp(-pow(x-mu,2) / (2.0*var)); }
@@ -125,29 +76,6 @@ double kahan_sum(vector<double> nums) {
     return sum;
 }
 
-/*
-double calc_weights(const vector<Coord> &coords, const double wiring_kernel_sd) {
-    const unsigned int N = coords.size();
-    vector<double> pzero_basic_weights(N);
-
-    const double gaussian_threshold = 10*wiring_kernel_sd; // distances greater than this are equally likely
-    const double wiring_kernel_var = pow(wiring_kernel_sd, 2);
-    double min_wt = normal_weight(gaussian_threshold, 0.0, wiring_kernel_var);
-
-    const int i = 0;
-    const double x1 = coords[i].x;
-    const double y1 = coords[i].y;
-    for (unsigned int j = i+1; j < N; ++j) {
-        const double x2 = coords[j].x;
-        const double y2 = coords[j].y;
-        const double distance = sqrt(pow(x2-x1,2) + pow(y2-y1,2));
-        pzero_basic_weights[j] = distance > gaussian_threshold ? min_wt : normal_weight(distance, 0.0, wiring_kernel_var);
-    }
-
-    sort(pzero_basic_weights.begin(), pzero_basic_weights.end());
-
-    return kahan_sum(pzero_basic_weights);
-}*/
 
 struct ProtoNode {
     Coord coords;
@@ -207,7 +135,7 @@ vector<vector<double>> calc_weights(const NetParameters &par, mt19937& rng) {
             const double x2 = pn_j.coords.x;
             const double y2 = pn_j.coords.y;
             const double distance = sqrt(pow(x2-x1,2) + pow(y2-y1,2));
-            double wp = 1.0; // correct value if i and j are in the same cluster
+            double wp = par.hh_wiring_prob; // correct value if i and j are in the same cluster
             if (pn_i.cluster_ID != pn_j.cluster_ID) {
                 wp = distance > gaussian_threshold ? min_prob : 
                      normal_weight(distance, 0.0, wiring_kernel_var);

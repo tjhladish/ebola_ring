@@ -9,11 +9,11 @@
 
     "parameters" : [
         {"name"       : "btn_cluster_sd",
-         "dist_type"  : "NORMAL",
+         "dist_type"  : "UNIFORM",
          "untransform"  : "POW_10",
          "num_type"   : "FLOAT",
-         "par1"       : -0.4,
-         "par2"       : 0.5},
+         "par1"       : -0.6,
+         "par2"       : 2},
         
         {"name"       : "wtn_cluster_sd_mult",
          "dist_type"  : "UNIFORM",
@@ -25,13 +25,21 @@
          "dist_type"  : "UNIFORM",
          "num_type"   : "FLOAT",
          "par1"       : 0.0,
-         "par2"       : 1.0}
+         "par2"       : 1.0},
+
+        {"name"       : "hh_wiring_prob",
+         "dist_type"  : "UNIFORM",
+         "num_type"   : "FLOAT",
+         "par1"       : 0.5,
+         "par2"       : 0.9}
+
     ],
 
     "metrics" : [
         {"name"       : "T_L1size_lq", "num_type"   : "FLOAT", "value"      : 8},
         {"name"       : "T_L1size_md", "num_type"   : "FLOAT", "value"      : 14},
         {"name"       : "T_L1size_hq", "num_type"   : "FLOAT", "value"      : 23},
+        {"name"       : "T_L1size_mn", "num_type"   : "FLOAT", "value"      : 17.37},
 
         {"name"       : "T_L2size_lq", "num_type"   : "FLOAT", "value"      : 47.5},
         {"name"       : "T_L2size_md", "num_type"   : "FLOAT", "value"      : 64.5},

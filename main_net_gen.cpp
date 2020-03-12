@@ -61,18 +61,17 @@ void initialize_parameters(vector<double> &abc_args, NetParameters &netpar) {
 
     netpar.hh_dist = discrete_distribution<int>(hh_nbinom.begin(), hh_nbinom.end());
 
-    netpar.between_cluster_sd   = abc_args[0];
-    netpar.within_cluster_sd    = abc_args[0]*abc_args[1]; //0.01;
+    netpar.between_cluster_sd    = abc_args[0];
+    netpar.within_cluster_sd     = abc_args[0]*abc_args[1]; //0.01;
     netpar.nonindex_edegree_mult = abc_args[2];
-    netpar.wiring_kernel_sd     = 1.0;
+    netpar.hh_wiring_prob        = abc_args[3];
+    netpar.wiring_kernel_sd      = 1.0;
 }
 
 
 vector<double> simulator(vector<double> args, const unsigned long int rng_seed, const unsigned long int /*serial*/, const ABC::MPI_par* /*mp*/) {
     // pull out the network parameterization
     // parameterize quarantine & death probs
-    //vector<double> abc_pars = {4.0};
-    //vector<double> abc_pars = {(double) atoi(argv[1])};
     NetParameters netpar = {};
     initialize_parameters(args, netpar);
     const int trial_networks = 90;
@@ -103,25 +102,14 @@ vector<double> simulator(vector<double> args, const unsigned long int rng_seed, 
         delete net;
     }
 
-    //cout << "Mean trm.l1_size: " << mean(trm.l1_size) << endl;
-    //cout << "1st, 3rd quartiles trm.l1_size: " << quantile(trm.l1_size, 0.25) << ", " << quantile(trm.l1_size, 0.75) << endl;
-
     //trm.dumper(cout);
     //irm.dumper(cout);
-    //vector<double> metrics(3, 0.0);
-    //vector<double> metrics = {(double) p_zero->deg(), (double) net->size()};
-    /*vector<double> metrics = {mean(  level_sizes[0] ),
-                              stdev( level_sizes[0] ),
-                              mean(  level_sizes[1] ),
-                              stdev( level_sizes[1] )};
-    */
-    //cerr << metrics[0] << " " << metrics[1] << " " << metrics[2] << " " << metrics[3] << endl;
 
     vector<double> metrics = {
         quantile(trm.l1_size, 0.25),
         quantile(trm.l1_size, 0.50),
         quantile(trm.l1_size, 0.75),
-        //mean(trm.l1_size),
+        mean(trm.l1_size),
 
         quantile(trm.l2_size, 0.25),
         quantile(trm.l2_size, 0.50),
