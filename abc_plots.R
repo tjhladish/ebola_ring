@@ -12,9 +12,9 @@ abc = abc[,!extra_serials]
 abc = subset(abc, select=-c(startTime, duration, attempts, seed))
 abc$post_bool = abc$posterior >= 0
 
-par_cols = 6:8
-met_cols = c(9:28)
-obs_met = c(8, 14, 23, 47.5, 64.5, 81.25, 72.966667, 2.652256, 4.840336, 9.087912, 10.03201, 0.02122255, 0.1005773, 0.2675585, 0.0110294, 0.12861, 0.23708025, 0, 0, 0);
+par_cols = 6:9
+met_cols = c(10:29)
+obs_met = c(8, 14, 23, 17.37, 47.5, 64.5, 81.25, 72.966667, 2.652256, 4.840336, 9.087912, 10.03201, 0.02122255, 0.1005773, 0.2675585, 0.0110294, 0.12861, 0.23708025, 0, 0, 0);
 
 
 #obs_met = c(8.75, 20, 25, 18.75, 40, 85.75, 0, 0, 2, 0.27403825, 0.373397, 0.65661775, 0.02122255, 0.1005773, 0.2675585, 0.0110294, 0.12861, 0.23708025, 0, 0, 0, -0.2950645, 0.261722, 0.81093, 0.599706, 0.692489, 0.74585775)
@@ -25,8 +25,8 @@ all_sets = unique(abc$smcSet)
 complete_sets = setdiff(all_sets, incomplete_sets)
 last_complete_set = max(complete_sets)
 
-pdf('marginal_pars_v4.pdf', width=8.5, height=11)
-par(mfrow=c(3,1))
+pdf('marginal_pars_v5.pdf', width=8.5, height=11)
+par(mfrow=c(4,1))
 par(mar=c(2.1, 4.1, 1.1, 0.5))
 for (col in par_cols) {
     colname = names(abc)[col];
@@ -38,7 +38,7 @@ dev.off()
 #ylims = list(c(0,800), c(0,5), c(0,200), c(0,350), c(0,600), c(10,30000), c(10e-1, 10e4), c(-2, 6), c(0, 1), c(0, 1), c(0, 1), c(-6, 4), c(-0.1, 0.1))
 
 # Plot metrics - tends to be trickier, because distributions can be weird (e.g, highly skewed or long-tailed)
-pdf('marginal_mets_v4.pdf', width=5, height=20)
+pdf('marginal_mets_v5.pdf', width=5, height=20)
 par(mfrow=c(17,1))
 par(mar=c(2.1, 4.1, 1.1, 0.5))
 #alpha = 0.025 # plot middle 95% of distributions
