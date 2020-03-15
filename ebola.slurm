@@ -7,11 +7,11 @@
 #SBATCH --mail-user=tjhladish@gmail.com
 
 #SBATCH --account=epi
-#SBATCH --qos=epi-b
+#SBATCH --qos=epi
 #SBATCH --chdir=/home/tjhladish/work/ebola
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=2000
-#SBATCH --time=24:00:00
+#SBATCH --mem-per-cpu=1000
+#SBATCH --time=04:00:00
 #SBATCH --array=0-49
 #SBATCH --partition=hpg2-compute
 
@@ -19,7 +19,7 @@ module load gcc/7.3.0 gsl
 
 for i in `seq 1 12`;
 do
-    ./ebola_net abc_ebola_rings-hh_cliques.json --simulate -n 25
+    ./ebola_net abc_ebola_rings-hh_cliques.json --simulate -n 20
     #./ebola_net abc_ebola_rings-test.json --simulate
     #./ebola_net abc_ebola_rings.json --simulate -n 20
 done
